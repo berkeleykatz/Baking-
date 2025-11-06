@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Manager</title>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Georgia', serif;
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      min-height: 100%;
+      height: 100%;
+    }
+    
+    html {
+      height: 100%;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .header h1 {
+      color: #5d4037;
+      font-size: 2.5rem;
+      margin: 0 0 0.5rem 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .header p {
+      color: #6d4c41;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .add-btn {
+      background: #ff6f61;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 25px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .add-btn:hover {
+      background: #ff5a4d;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+    }
+    
+    .filter-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    
+    .filter-btn {
+      background: white;
+      color: #5d4037;
+      border: 2px solid #5d4037;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .filter-btn:hover {
+      background: #5d4037;
+      color: white;
+    }
+    
+    .filter-btn.active {
+      background: #5d4037;
+      color: white;
+    }
+    
+    .recipe-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .recipe-card {
+      background: white;
+      border-radius: 15px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .recipe-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+    }
+    
+    .recipe-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+    
+    .recipe-title {
+      font-size: 1.3rem;
+      color: #5d4037;
+      margin: 0;
+      font-weight: bold;
+    }
+    
+    .recipe-category {
+      background: #ffe0b2;
+      color: #e65100;
+      padding: 0.25rem 0.75rem;
+      border-radius: 15px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .rating {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+    }
+    
+    .star {
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    
+    .star:hover {
+      transform: scale(1.2);
+    }
+    
+    .star.filled {
+      color: #ffd700;
+    }
+    
+    .star.empty {
+      color: #ddd;
+    }
+    
+    .recipe-section {
+      margin-bottom: 1rem;
+    }
+    
+    .recipe-section h3 {
+      color: #5d4037;
+      font-size: 1rem;
+      margin: 0 0 0.5rem 0;
+    }
+    
+    .recipe-section p {
+      color: #6d4c41;
+      font-size: 0.9rem;
+      margin: 0;
+      line-height: 1.5;
+    }
+    
+    .recipe-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .edit-btn, .delete-btn {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    .edit-btn {
+      background: #4caf50;
+      color: white;
+    }
+    
+    .edit-btn:hover {
+      background: #45a049;
+    }
+    
+    .delete-btn {
+      background: #f44336;
+      color: white;
+    }
+    
+    .delete-btn:hover {
+      background: #da190b;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 2rem;
+    }
+    
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 15px;
+      padding: 2rem;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90%;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h2 {
+      color: #5d4037;
+      margin: 0;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #5d4037;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+      display: block;
+      color: #5d4037;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: 'Georgia', serif;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #ff6f61;
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .submit-btn, .cancel-btn {
+      flex: 1;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    
+    .submit-btn {
+      background: #ff6f61;
+      color: white;
+    }
+    
+    .submit-btn:hover {
+      background: #ff5a4d;
+    }
+    
+    .submit-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .cancel-btn {
+      background: #ddd;
+      color: #5d4037;
+    }
+    
+    .cancel-btn:hover {
+      background: #ccc;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #6d4c41;
+    }
+    
+    .empty-state h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .empty-state p {
+      font-size: 1.1rem;
+    }
+    
+    .limit-warning {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      color: #856404;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-weight: bold;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="container">
+   <div class="header">
+    <h1 id="app-title">My Recipe Collection</h1>
+    <p>Organize and rate your favorite baking recipes</p>
+   </div>
+   <div id="limit-warning" class="limit-warning" style="display: none;">
+    Maximum limit of 999 recipes reached. Please delete some recipes to add new ones.
+   </div>
+   <div class="controls"><button class="add-btn" id="add-recipe-btn"> <span id="add-button-text">➕ Add New Recipe</span> </button>
+    <div class="filter-group"><button class="filter-btn active" data-category="all">All</button> <button class="filter-btn" data-category="Cakes">🎂 Cakes</button> <button class="filter-btn" data-category="Cookies">🍪 Cookies</button> <button class="filter-btn" data-category="Donuts">🍩 Donuts</button> <button class="filter-btn" data-category="Breads">🍞 Breads</button> <button class="filter-btn" data-category="Pies">🥧 Pies</button> <button class="filter-btn" data-category="Other">📋 Other</button>
+    </div>
+   </div>
+   <div id="recipe-grid" class="recipe-grid"></div>
+  </div>
+  <div id="recipe-modal" class="modal">
+   <div class="modal-content">
+    <div class="modal-header">
+     <h2 id="modal-title">Add New Recipe</h2><button class="close-btn" id="close-modal">×</button>
+    </div>
+    <form id="recipe-form">
+     <div class="form-group"><label for="recipe-name">Recipe Name</label> <input type="text" id="recipe-name" required placeholder="e.g., Chocolate Chip Cookies">
+     </div>
+     <div class="form-group"><label for="recipe-category">Category</label> <select id="recipe-category" required> <option value="">Select a category</option> <option value="Cakes">Cakes</option> <option value="Cookies">Cookies</option> <option value="Donuts">Donuts</option> <option value="Breads">Breads</option> <option value="Pies">Pies</option> <option value="Other">Other</option> </select>
+     </div>
+     <div class="form-group"><label for="recipe-ingredients">Ingredients</label> <textarea id="recipe-ingredients" required placeholder="List your ingredients, one per line"></textarea>
+     </div>
+     <div class="form-group"><label for="recipe-instructions">Instructions</label> <textarea id="recipe-instructions" required placeholder="Step-by-step instructions"></textarea>
+     </div>
+     <div class="form-actions"><button type="button" class="cancel-btn" id="cancel-btn">Cancel</button> <button type="submit" class="submit-btn" id="submit-btn">Save Recipe</button>
+     </div>
+    </form>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      app_title: "My Recipe Collection",
+      add_button_text: "➕ Add New Recipe",
+      background_color: "#ffecd2",
+      surface_color: "#ffffff",
+      text_color: "#5d4037",
+      primary_action_color: "#ff6f61",
+      secondary_action_color: "#4caf50",
+      font_family: "Georgia",
+      font_size: 16
+    };
+
+    let recipes = [];
+    let currentFilter = 'all';
+    let editingRecipeId = null;
+
+    const dataHandler = {
+      onDataChanged(data) {
+        recipes = data;
+        renderRecipes();
+        updateLimitWarning();
+      }
+    };
+
+    async function initializeApp() {
+      if (window.dataSdk) {
+        const initResult = await window.dataSdk.init(dataHandler);
+        if (!initResult.isOk) {
+          console.error("Failed to initialize data SDK");
+        }
+      }
+
+      if (window.elementSdk) {
+        await window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => {
+            const appTitle = document.getElementById('app-title');
+            const addButtonText = document.getElementById('add-button-text');
+            const body = document.body;
+            const recipeCards = document.querySelectorAll('.recipe-card');
+            const addBtn = document.getElementById('add-recipe-btn');
+            const editBtns = document.querySelectorAll('.edit-btn');
+            
+            const customFont = config.font_family || defaultConfig.font_family;
+            const baseFontStack = 'serif';
+            const baseSize = config.font_size || defaultConfig.font_size;
+            
+            body.style.fontFamily = `${customFont}, ${baseFontStack}`;
+            body.style.fontSize = `${baseSize}px`;
+            body.style.background = `linear-gradient(135deg, ${config.background_color || defaultConfig.background_color} 0%, #fcb69f 100%)`;
+            
+            if (appTitle) {
+              appTitle.textContent = config.app_title || defaultConfig.app_title;
+              appTitle.style.color = config.text_color || defaultConfig.text_color;
+              appTitle.style.fontSize = `${baseSize * 2.5}px`;
+            }
+            
+            if (addButtonText) {
+              addButtonText.textContent = config.add_button_text || defaultConfig.add_button_text;
+            }
+            
+            if (addBtn) {
+              addBtn.style.background = config.primary_action_color || defaultConfig.primary_action_color;
+            }
+            
+            recipeCards.forEach(card => {
+              card.style.background = config.surface_color || defaultConfig.surface_color;
+            });
+            
+            editBtns.forEach(btn => {
+              btn.style.background = config.secondary_action_color || defaultConfig.secondary_action_color;
+            });
+            
+            document.querySelectorAll('.recipe-title, .modal-header h2, .form-group label').forEach(el => {
+              el.style.color = config.text_color || defaultConfig.text_color;
+            });
+          },
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () => config.background_color || defaultConfig.background_color,
+                set: (value) => {
+                  config.background_color = value;
+                  window.elementSdk.setConfig({ background_color: value });
+                }
+              },
+              {
+                get: () => config.surface_color || defaultConfig.surface_color,
+                set: (value) => {
+                  config.surface_color = value;
+                  window.elementSdk.setConfig({ surface_color: value });
+                }
+              },
+              {
+                get: () => config.text_color || defaultConfig.text_color,
+                set: (value) => {
+                  config.text_color = value;
+                  window.elementSdk.setConfig({ text_color: value });
+                }
+              },
+              {
+                get: () => config.primary_action_color || defaultConfig.primary_action_color,
+                set: (value) => {
+                  config.primary_action_color = value;
+                  window.elementSdk.setConfig({ primary_action_color: value });
+                }
+              },
+              {
+                get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
+                set: (value) => {
+                  config.secondary_action_color = value;
+                  window.elementSdk.setConfig({ secondary_action_color: value });
+                }
+              }
+            ],
+            borderables: [],
+            fontEditable: {
+              get: () => config.font_family || defaultConfig.font_family,
+              set: (value) => {
+                config.font_family = value;
+                window.elementSdk.setConfig({ font_family: value });
+              }
+            },
+            fontSizeable: {
+              get: () => config.font_size || defaultConfig.font_size,
+              set: (value) => {
+                config.font_size = value;
+                window.elementSdk.setConfig({ font_size: value });
+              }
+            }
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ["app_title", config.app_title || defaultConfig.app_title],
+            ["add_button_text", config.add_button_text || defaultConfig.add_button_text]
+          ])
+        });
+      }
+
+      setupEventListeners();
+    }
+
+    function setupEventListeners() {
+      document.getElementById('add-recipe-btn').addEventListener('click', openAddModal);
+      document.getElementById('close-modal').addEventListener('click', closeModal);
+      document.getElementById('cancel-btn').addEventListener('click', closeModal);
+      document.getElementById('recipe-form').addEventListener('submit', handleSubmit);
+      
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          currentFilter = e.target.dataset.category;
+          renderRecipes();
+        });
+      });
+    }
+
+    function openAddModal() {
+      if (recipes.length >= 999) {
+        return;
+      }
+      editingRecipeId = null;
+      document.getElementById('modal-title').textContent = 'Add New Recipe';
+      document.getElementById('recipe-form').reset();
+      document.getElementById('recipe-modal').classList.add('active');
+    }
+
+    function openEditModal(recipe) {
+      editingRecipeId = recipe.__backendId;
+      document.getElementById('modal-title').textContent = 'Edit Recipe';
+      document.getElementById('recipe-name').value = recipe.name;
+      document.getElementById('recipe-category').value = recipe.category;
+      document.getElementById('recipe-ingredients').value = recipe.ingredients;
+      document.getElementById('recipe-instructions').value = recipe.instructions;
+      document.getElementById('recipe-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('recipe-modal').classList.remove('active');
+      editingRecipeId = null;
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+      
+      const formData = {
+        name: document.getElementById('recipe-name').value,
+        category: document.getElementById('recipe-category').value,
+        ingredients: document.getElementById('recipe-ingredients').value,
+        instructions: document.getElementById('recipe-instructions').value
+      };
+      
+      if (editingRecipeId) {
+        const recipe = recipes.find(r => r.__backendId === editingRecipeId);
+        if (recipe && window.dataSdk) {
+          const result = await window.dataSdk.update({
+            ...recipe,
+            ...formData
+          });
+          
+          if (result.isOk) {
+            closeModal();
+          } else {
+            alert('Failed to update recipe. Please try again.');
+          }
+        }
+      } else {
+        if (recipes.length >= 999) {
+          alert('Maximum limit of 999 recipes reached. Please delete some recipes first.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Recipe';
+          return;
+        }
+        
+        if (window.dataSdk) {
+          const result = await window.dataSdk.create({
+            id: Date.now().toString(),
+            ...formData,
+            rating: 0,
+            createdAt: new Date().toISOString()
+          });
+          
+          if (result.isOk) {
+            closeModal();
+          } else {
+            alert('Failed to create recipe. Please try again.');
+          }
+        }
+      }
+      
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Recipe';
+    }
+
+    async function updateRating(recipe, newRating) {
+      if (window.dataSdk) {
+        const result = await window.dataSdk.update({
+          ...recipe,
+          rating: newRating
+        });
+        
+        if (!result.isOk) {
+          alert('Failed to update rating. Please try again.');
+        }
+      }
+    }
+
+    async function deleteRecipe(recipe) {
+      const deleteBtn = event.target;
+      const originalText = deleteBtn.textContent;
+      
+      if (deleteBtn.textContent === 'Delete') {
+        deleteBtn.textContent = 'Confirm?';
+        deleteBtn.style.background = '#d32f2f';
+        
+        setTimeout(() => {
+          if (deleteBtn.textContent === 'Confirm?') {
+            deleteBtn.textContent = originalText;
+            deleteBtn.style.background = '#f44336';
+          }
+        }, 3000);
+        return;
+      }
+      
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+      
+      if (window.dataSdk) {
+        const result = await window.dataSdk.delete(recipe);
+        
+        if (!result.isOk) {
+          alert('Failed to delete recipe. Please try again.');
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = originalText;
+        }
+      }
+    }
+
+    function renderRecipes() {
+      const grid = document.getElementById('recipe-grid');
+      const filteredRecipes = currentFilter === 'all' 
+        ? recipes 
+        : recipes.filter(r => r.category === currentFilter);
+      
+      if (filteredRecipes.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <h2>No recipes yet!</h2>
+            <p>Click "Add New Recipe" to get started 🍰</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const existingCards = new Map(
+        [...grid.children].map(el => [el.dataset.recipeId, el])
+      );
+      
+      filteredRecipes.forEach(recipe => {
+        if (existingCards.has(recipe.__backendId)) {
+          updateRecipeCard(existingCards.get(recipe.__backendId), recipe);
+          existingCards.delete(recipe.__backendId);
+        } else {
+          grid.appendChild(createRecipeCard(recipe));
+        }
+      });
+      
+      existingCards.forEach(el => el.remove());
+    }
+
+    function createRecipeCard(recipe) {
+      const card = document.createElement('div');
+      card.className = 'recipe-card';
+      card.dataset.recipeId = recipe.__backendId;
+      updateRecipeCard(card, recipe);
+      return card;
+    }
+
+    function updateRecipeCard(card, recipe) {
+      const config = window.elementSdk?.config || defaultConfig;
+      card.style.background = config.surface_color || defaultConfig.surface_color;
+      
+      card.innerHTML = `
+        <div class="recipe-header">
+          <h2 class="recipe-title" style="color: ${config.text_color || defaultConfig.text_color}">${recipe.name}</h2>
+          <span class="recipe-category">${recipe.category}</span>
+        </div>
+        <div class="rating" data-recipe-id="${recipe.__backendId}">
+          ${[1,2,3,4,5].map(star => 
+            `<span class="star ${star <= recipe.rating ? 'filled' : 'empty'}" data-rating="${star}">★</span>`
+          ).join('')}
+        </div>
+        <div class="recipe-section">
+          <h3>Ingredients</h3>
+          <p>${recipe.ingredients}</p>
+        </div>
+        <div class="recipe-section">
+          <h3>Instructions</h3>
+          <p>${recipe.instructions}</p>
+        </div>
+        <div class="recipe-actions">
+          <button class="edit-btn" style="background: ${config.secondary_action_color || defaultConfig.secondary_action_color}">Edit</button>
+          <button class="delete-btn">Delete</button>
+        </div>
+      `;
+      
+      card.querySelector('.rating').addEventListener('click', (e) => {
+        if (e.target.classList.contains('star')) {
+          const rating = parseInt(e.target.dataset.rating);
+          updateRating(recipe, rating);
+        }
+      });
+      
+      card.querySelector('.edit-btn').addEventListener('click', () => openEditModal(recipe));
+      card.querySelector('.delete-btn').addEventListener('click', () => deleteRecipe(recipe));
+    }
+
+    function updateLimitWarning() {
+      const warning = document.getElementById('limit-warning');
+      if (recipes.length >= 999) {
+        warning.style.display = 'block';
+      } else {
+        warning.style.display = 'none';
+      }
+    }
+
+    initializeApp();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99a7600e54cb36e7',t:'MTc2MjQ2MTMwNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
