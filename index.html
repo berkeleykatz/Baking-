@@ -1,1169 +1,486 @@
 <!doctype html>
 <html lang="en">
- <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Recipe Manager</title>
-  <script src="/_sdk/data_sdk.js"></script>
-  <script src="/_sdk/element_sdk.js"></script>
-  <style>
-    body {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Georgia', serif;
-      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-      min-height: 100%;
-      height: 100%;
-    }
-    
-    html {
-      height: 100%;
-    }
-    
-    * {
-      box-sizing: border-box;
-    }
-    
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-    
-    .header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    
-    .header h1 {
-      color: #5d4037;
-      font-size: 2.5rem;
-      margin: 0 0 0.5rem 0;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .header p {
-      color: #6d4c41;
-      font-size: 1.1rem;
-      margin: 0;
-    }
-    
-    .controls {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    
-    .add-btn {
-      background: #ff6f61;
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 25px;
-      font-size: 1rem;
-      cursor: pointer;
-      font-weight: bold;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transition: all 0.3s ease;
-    }
-    
-    .add-btn:hover {
-      background: #ff5a4d;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-    }
-    
-    .filter-group {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      flex: 1;
-    }
-    
-    .filter-btn {
-      background: white;
-      color: #5d4037;
-      border: 2px solid #5d4037;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    
-    .filter-btn:hover {
-      background: #5d4037;
-      color: white;
-    }
-    
-    .filter-btn.active {
-      background: #5d4037;
-      color: white;
-    }
-    
-    .recipe-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-    
-    .recipe-card {
-      background: white;
-      border-radius: 15px;
-      padding: 1.5rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .recipe-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 12px rgba(0,0,0,0.15);
-    }
-    
-    .recipe-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      margin-bottom: 1rem;
-    }
-    
-    .recipe-title {
-      font-size: 1.3rem;
-      color: #5d4037;
-      margin: 0;
-      font-weight: bold;
-    }
-    
-    .recipe-category {
-      background: #ffe0b2;
-      color: #e65100;
-      padding: 0.25rem 0.75rem;
-      border-radius: 15px;
-      font-size: 0.8rem;
-      font-weight: bold;
-    }
-    
-    .rating {
-      display: flex;
-      gap: 0.25rem;
-      margin-bottom: 1rem;
-    }
-    
-    .star {
-      font-size: 1.5rem;
-      cursor: pointer;
-      transition: transform 0.2s ease;
-    }
-    
-    .star:hover {
-      transform: scale(1.2);
-    }
-    
-    .star.filled {
-      color: #ffd700;
-    }
-    
-    .star.empty {
-      color: #ddd;
-    }
-    
-    .recipe-section {
-      margin-bottom: 1rem;
-    }
-    
-    .recipe-section h3 {
-      color: #5d4037;
-      font-size: 1rem;
-      margin: 0 0 0.5rem 0;
-    }
-    
-    .recipe-section p {
-      color: #6d4c41;
-      font-size: 0.9rem;
-      margin: 0;
-      line-height: 1.5;
-    }
-    
-    .recipe-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 1rem;
-    }
-    
-    .edit-btn, .delete-btn {
-      flex: 1;
-      padding: 0.5rem;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
-    
-    .edit-btn {
-      background: #4caf50;
-      color: white;
-    }
-    
-    .edit-btn:hover {
-      background: #45a049;
-    }
-    
-    .delete-btn {
-      background: #f44336;
-      color: white;
-    }
-    
-    .delete-btn:hover {
-      background: #da190b;
-    }
-    
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      overflow-y: auto;
-      padding: 2rem;
-    }
-    
-    .modal.active {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .modal-content {
-      background: white;
-      border-radius: 15px;
-      padding: 2rem;
-      max-width: 800px;
-      width: 100%;
-      max-height: 90%;
-      overflow-y: auto;
-    }
-    
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-    
-    .modal-header h2 {
-      color: #5d4037;
-      margin: 0;
-    }
-    
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: #5d4037;
-      padding: 0;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-    
-    .form-group label {
-      display: block;
-      color: #5d4037;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-    
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-      width: 100%;
-      padding: 0.75rem;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-family: 'Georgia', serif;
-    }
-    
-    .form-group textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-    
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: #ff6f61;
-    }
-    
-    .form-actions {
-      display: flex;
-      gap: 1rem;
-    }
-    
-    .submit-btn, .cancel-btn {
-      flex: 1;
-      padding: 0.75rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.3s ease;
-    }
-    
-    .submit-btn {
-      background: #ff6f61;
-      color: white;
-    }
-    
-    .submit-btn:hover {
-      background: #ff5a4d;
-    }
-    
-    .submit-btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    
-    .cancel-btn {
-      background: #ddd;
-      color: #5d4037;
-    }
-    
-    .cancel-btn:hover {
-      background: #ccc;
-    }
-    
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      color: #6d4c41;
-    }
-    
-    .empty-state h2 {
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-    }
-    
-    .empty-state p {
-      font-size: 1.1rem;
-    }
-    
-    .limit-warning {
-      background: #fff3cd;
-      border: 2px solid #ffc107;
-      color: #856404;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      text-align: center;
-      font-weight: bold;
-    }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Recipe Collection</title>
 
-    .preview-thumb {
-      max-width: 150px;
-      max-height: 100px;
-      border-radius: 8px;
-      display: block;
-      margin-top: 0.5rem;
-      object-fit: cover;
-    }
+  <!-- Tailwind (optional utilities for layout/spacing) -->
+  <script src="https://cdn.tailwindcss.com" defer></script>
 
-    .small-btn {
-      padding: 0.5rem 0.75rem;
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
-      cursor: pointer;
-      border-radius: 6px;
-      border: none;
-      background: #1976d2;
-      color: white;
-    }
-
-    .small-btn[disabled] {
-      background: #888;
-      cursor: not-allowed;
-    }
-
-    .progress {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
-      color: #5d4037;
-    }
-
-  </style>
-  <style>@view-transition { navigation: auto; }</style>
-  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
   <!-- Tesseract.js for client-side OCR -->
   <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
- </head>
- <body>
+
+  <style>
+    :root{
+      --bg1:#ffecd2; --bg2:#fcb69f; --text:#5d4037; --primary:#ff6f61; --secondary:#4caf50;
+      --surface:#ffffff; --accent:#ffe0b2; --accentText:#e65100;
+    }
+    html,body{height:100%}
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: Georgia, serif; color:var(--text);
+      background:linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 100%);
+      min-height:100%;
+    }
+    .container{max-width:1200px;margin:0 auto;padding:2rem}
+    .header{text-align:center;margin-bottom:2rem}
+    .header h1{font-size:2.5rem;margin:0 0 .5rem;text-shadow:2px 2px 4px rgba(0,0,0,.1)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+      border:none;border-radius:999px;padding:.75rem 1.25rem;font-weight:700;cursor:pointer;transition:.2s}
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
+    .btn-secondary{background:var(--secondary);color:#fff}
+    .btn-secondary:hover{filter:brightness(.95)}
+    .btn-ghost{background:#fff;border:2px solid var(--text);color:var(--text);border-radius:20px;padding:.5rem 1rem}
+    .btn-ghost.active,.btn-ghost:hover{background:var(--text);color:#fff}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem}
+    .card{background:var(--surface);border-radius:16px;padding:1.25rem;box-shadow:0 4px 8px rgba(0,0,0,.1)}
+    .chip{background:var(--accent);color:var(--accentText);padding:.25rem .6rem;border-radius:14px;font-weight:700;font-size:.8rem}
+    .rating{display:flex;gap:.25rem;margin:.5rem 0 1rem}
+    .star{font-size:1.4rem;cursor:pointer;transition:transform .15s}
+    .star:hover{transform:scale(1.2)}
+    .star.filled{color:#ffd700}.star.empty{color:#ddd}
+    /* Modal */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:2rem;z-index:50}
+    .modal.active{display:flex}
+    .modal-content{background:#fff;border-radius:16px;padding:1.5rem;max-width:900px;width:100%;max-height:90%;overflow:auto}
+    .form{display:grid;gap:1rem}
+    .form label{font-weight:700;margin-bottom:.35rem;display:block}
+    .input,.select,.textarea{width:100%;padding:.75rem;border:2px solid #ddd;border-radius:8px;font:inherit}
+    .textarea{min-height:110px;resize:vertical}
+    .limit{background:#fff3cd;border:2px solid #ffc107;color:#7a5d00;padding:1rem;border-radius:10px;text-align:center;font-weight:700;margin:1rem 0}
+    .thumb{max-width:150px;max-height:100px;border-radius:8px;display:block;margin-top:.5rem;object-fit:cover}
+  </style>
+</head>
+<body>
   <div class="container">
-   <div class="header">
-    <h1 id="app-title">My Recipe Collection</h1>
-    <p>Organize and rate your favorite baking recipes</p>
-   </div>
-   <div id="limit-warning" class="limit-warning" style="display: none;">
-    Maximum limit of 999 recipes reached. Please delete some recipes to add new ones.
-   </div>
-   <div class="controls"><button class="add-btn" id="add-recipe-btn"> <span id="add-button-text">➕ Add New Recipe</span> </button>
-    <div class="filter-group"><button class="filter-btn active" data-category="all">All</button> <button class="filter-btn" data-category="Cakes">🎂 Cakes</button> <button class="filter-btn" data-category="Cookies">🍪 Cookies</button> <button class="filter-btn" data-category="Pies">🥧 Pies</button> <button class="filter-btn" data-category="Bread">🍞 Bread</button> <button class="filter-btn" data-category="Other">Other</button>
+    <div class="header">
+      <h1>My Recipe Collection</h1>
+      <p>Organize and rate your favorite baking recipes</p>
     </div>
-   </div>
-   <div id="recipe-grid" class="recipe-grid"></div>
-  </div>
-  <div id="recipe-modal" class="modal">
-   <div class="modal-content">
-    <div class="modal-header">
-     <h2 id="modal-title">Add New Recipe</h2><button class="close-btn" id="close-modal">×</button>
+
+    <div id="limit" class="limit" style="display:none">Maximum limit of 999 recipes reached.</div>
+
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+      <button id="addBtn" class="btn btn-primary">➕ Add New Recipe</button>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn-ghost active" data-filter="all">All</button>
+        <button class="btn-ghost" data-filter="Cakes">🎂 Cakes</button>
+        <button class="btn-ghost" data-filter="Cookies">🍪 Cookies</button>
+        <button class="btn-ghost" data-filter="Pies">🥧 Pies</button>
+        <button class="btn-ghost" data-filter="Bread">🍞 Bread</button>
+        <button class="btn-ghost" data-filter="Other">Other</button>
+      </div>
     </div>
-    <form id="recipe-form">
-     <div class="form-group"><label for="recipe-name">Recipe Name</label> <input type="text" id="recipe-name" required placeholder="e.g., Chocolate Chip Cookies">
-     </div>
 
-     <div class="form-group"><label for="recipe-category">Category</label> <select id="recipe-category" required> <option value="">Select a category</option> <option value="Cakes">Cakes</option> <option value="Cookies">Cookies</option> <option value="Pies">Pies</option> <option value="Bread">Bread</option> <option value="Other">Other</option> </select>
-     </div>
-
-     <div class="form-group"><label for="recipe-ingredients">Ingredients</label> <textarea id="recipe-ingredients" required placeholder="List your ingredients, one per line"></textarea>
-     </div>
-
-     <div class="form-group"><label for="recipe-instructions">Instructions</label> <textarea id="recipe-instructions" required placeholder="Step-by-step instructions"></textarea>
-     </div>
-
-     <!-- NEW: Recipe photo for OCR -->
-     <div class="form-group">
-       <label for="recipe-photo">Upload recipe photo (scan to fill form)</label>
-       <input type="file" id="recipe-photo" accept="image/*">
-       <img id="recipe-photo-preview" class="preview-thumb" style="display:none" alt="Recipe photo preview">
-       <div>
-         <button type="button" id="scan-photo-btn" class="small-btn">Scan Photo</button>
-         <span id="scan-photo-progress" class="progress" style="display:none"></span>
-       </div>
-     </div>
-
-     <!-- NEW: Video upload to analyze frames -->
-     <div class="form-group">
-       <label for="recipe-video">Upload video (sample frames to OCR)</label>
-       <input type="file" id="recipe-video" accept="video/*">
-       <div>
-         <button type="button" id="analyze-video-btn" class="small-btn">Analyze Video</button>
-         <span id="analyze-video-progress" class="progress" style="display:none"></span>
-       </div>
-     </div>
-
-     <!-- NEW: Finished photo upload -->
-     <div class="form-group">
-       <label for="finished-photo">Upload finished-photo (will be shown above recipe)</label>
-       <input type="file" id="finished-photo" accept="image/*">
-       <img id="finished-photo-preview" class="preview-thumb" style="display:none" alt="Finished photo preview">
-     </div>
-
-     <div class="form-actions"><button type="button" class="cancel-btn" id="cancel-btn">Cancel</button> <button type="submit" class="submit-btn" id="submit-btn">Save Recipe</button>
-     </div>
-    </form>
-   </div>
+    <div id="grid" class="grid"></div>
   </div>
 
-  <!-- Hidden video element used to sample frames -->
-  <video id="hidden-video" style="display:none"></video>
-  <canvas id="video-canvas" style="display:none"></canvas>
+  <!-- Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="modalTitle" class="text-2xl m-0">Add New Recipe</h2>
+        <button id="closeModal" class="btn-ghost">✕</button>
+      </div>
+
+      <form id="form" class="form">
+        <div>
+          <label for="name">Recipe Name</label>
+          <input id="name" class="input" type="text" required placeholder="e.g., Chocolate Chip Cookies">
+        </div>
+
+        <div>
+          <label for="cat">Category</label>
+          <select id="cat" class="select" required>
+            <option value="">Select a category</option>
+            <option value="Cakes">Cakes</option>
+            <option value="Cookies">Cookies</option>
+            <option value="Pies">Pies</option>
+            <option value="Bread">Bread</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="ingredients">Ingredients</label>
+          <textarea id="ingredients" class="textarea" required placeholder="One per line"></textarea>
+        </div>
+
+        <div>
+          <label for="instructions">Instructions</label>
+          <textarea id="instructions" class="textarea" required placeholder="Step-by-step"></textarea>
+        </div>
+
+        <!-- OCR from image -->
+        <div>
+          <label for="photo">Upload recipe photo (scan to fill form)</label>
+          <input id="photo" type="file" accept="image/*" class="input">
+          <img id="photoPreview" class="thumb" style="display:none" alt="Recipe photo preview">
+          <div class="mt-2 flex items-center gap-2">
+            <button id="scanBtn" type="button" class="btn btn-secondary">Scan Photo</button>
+            <span id="scanProgress" class="text-sm"></span>
+          </div>
+        </div>
+
+        <!-- OCR from video -->
+        <div>
+          <label for="video">Upload video (sample frames to OCR)</label>
+          <input id="video" type="file" accept="video/*" class="input">
+          <div class="mt-2 flex items-center gap-2">
+            <button id="analyzeBtn" type="button" class="btn btn-secondary">Analyze Video</button>
+            <span id="analyzeProgress" class="text-sm"></span>
+          </div>
+        </div>
+
+        <!-- Finished photo shown on card -->
+        <div>
+          <label for="finished">Upload finished-photo (shown above recipe)</label>
+          <input id="finished" type="file" accept="image/*" class="input">
+          <img id="finishedPreview" class="thumb" style="display:none" alt="Finished photo preview">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-2">
+          <button id="cancelBtn" type="button" class="btn btn-ghost">Cancel</button>
+          <button id="saveBtn" type="submit" class="btn btn-primary">Save Recipe</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hidden elements for video OCR -->
+  <video id="hiddenVideo" style="display:none"></video>
+  <canvas id="canvas" style="display:none"></canvas>
 
   <script>
-    const defaultConfig = {
-      app_title: "My Recipe Collection",
-      add_button_text: "➕ Add New Recipe",
-      background_color: "#ffecd2",
-      surface_color: "#ffffff",
-      text_color: "#5d4037",
-      primary_action_color: "#ff6f61",
-      secondary_action_color: "#4caf50",
-      font_family: "Georgia",
-      font_size: 16
-    };
+    /************ Simple data store (localStorage) ************/
+    const STORE_KEY = 'recipes_v1';
+    const load = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } };
+    const save = (arr) => localStorage.setItem(STORE_KEY, JSON.stringify(arr));
 
-    let recipes = [];
-    let currentFilter = 'all';
-    let editingRecipeId = null;
+    /************ App state ************/
+    let recipes = load();        // array of recipe objects
+    let filter = 'all';          // current category filter
+    let editingId = null;        // __id of recipe being edited
 
-    const dataHandler = {
-      onDataChanged(data) {
-        recipes = data;
-        renderRecipes();
-        updateLimitWarning();
-      }
-    };
+    /************ DOM helpers ************/
+    const $ = (sel) => document.querySelector(sel);
+    const grid = $('#grid');
+    const limit = $('#limit');
+    const modal = $('#modal');
+    const form = $('#form');
+    const modalTitle = $('#modalTitle');
+    const nameEl = $('#name');
+    const catEl = $('#cat');
+    const ingEl = $('#ingredients');
+    const instEl = $('#instructions');
+    const finishedEl = $('#finished');
+    const finishedPreview = $('#finishedPreview');
+    const photoEl = $('#photo');
+    const photoPreview = $('#photoPreview');
+    const scanBtn = $('#scanBtn');
+    const scanProgress = $('#scanProgress');
+    const videoEl = $('#video');
+    const analyzeBtn = $('#analyzeBtn');
+    const analyzeProgress = $('#analyzeProgress');
 
-    async function initializeApp() {
-      if (window.dataSdk) {
-        const initResult = await window.dataSdk.init(dataHandler);
-        if (!initResult.isOk) {
-          console.error("Failed to initialize data SDK");
-        }
-      }
-
-      if (window.elementSdk) {
-        await window.elementSdk.init({
-          defaultConfig,
-          onConfigChange: async (config) => {
-            const appTitle = document.getElementById('app-title');
-            const addButtonText = document.getElementById('add-button-text');
-            const body = document.body;
-            const recipeCards = document.querySelectorAll('.recipe-card');
-            const addBtn = document.getElementById('add-recipe-btn');
-            const editBtns = document.querySelectorAll('.edit-btn');
-            
-            const customFont = config.font_family || defaultConfig.font_family;
-            const baseFontStack = 'serif';
-            const baseSize = config.font_size || defaultConfig.font_size;
-            
-            body.style.fontFamily = `${customFont}, ${baseFontStack}`;
-            body.style.fontSize = `${baseSize}px`;
-            body.style.background = `linear-gradient(135deg, ${config.background_color || defaultConfig.background_color} 0%, #fcb69f 100%)`;
-            
-            if (appTitle) {
-              appTitle.textContent = config.app_title || defaultConfig.app_title;
-              appTitle.style.color = config.text_color || defaultConfig.text_color;
-              appTitle.style.fontSize = `${baseSize * 2.5}px`;
-            }
-            
-            if (addButtonText) {
-              addButtonText.textContent = config.add_button_text || defaultConfig.add_button_text;
-            }
-            
-            if (addBtn) {
-              addBtn.style.background = config.primary_action_color || defaultConfig.primary_action_color;
-            }
-            
-            recipeCards.forEach(card => {
-              card.style.background = config.surface_color || defaultConfig.surface_color;
-            });
-            
-            editBtns.forEach(btn => {
-              btn.style.background = config.secondary_action_color || defaultConfig.secondary_action_color;
-            });
-            
-            document.querySelectorAll('.recipe-title, .modal-header h2, .form-group label').forEach(el => {
-              el.style.color = config.text_color || defaultConfig.text_color;
-            });
-          },
-          mapToCapabilities: (config) => ({
-            recolorables: [
-              {
-                get: () => config.background_color || defaultConfig.background_color,
-                set: (value) => {
-                  config.background_color = value;
-                  window.elementSdk.setConfig({ background_color: value });
-                }
-              },
-              {
-                get: () => config.surface_color || defaultConfig.surface_color,
-                set: (value) => {
-                  config.surface_color = value;
-                  window.elementSdk.setConfig({ surface_color: value });
-                }
-              },
-              {
-                get: () => config.text_color || defaultConfig.text_color,
-                set: (value) => {
-                  config.text_color = value;
-                  window.elementSdk.setConfig({ text_color: value });
-                }
-              },
-              {
-                get: () => config.primary_action_color || defaultConfig.primary_action_color,
-                set: (value) => {
-                  config.primary_action_color = value;
-                  window.elementSdk.setConfig({ primary_action_color: value });
-                }
-              },
-              {
-                get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
-                set: (value) => {
-                  config.secondary_action_color = value;
-                  window.elementSdk.setConfig({ secondary_action_color: value });
-                }
-              }
-            ],
-            borderables: [],
-            fontEditable: {
-              get: () => config.font_family || defaultConfig.font_family,
-              set: (value) => {
-                config.font_family = value;
-                window.elementSdk.setConfig({ font_family: value });
-              }
-            },
-            fontSizeable: {
-              get: () => config.font_size || defaultConfig.font_size,
-              set: (value) => {
-                config.font_size = value;
-                window.elementSdk.setConfig({ font_size: value });
-              }
-            }
-          }),
-          mapToEditPanelValues: (config) => new Map([
-            ["app_title", config.app_title || defaultConfig.app_title],
-            ["add_button_text", config.add_button_text || defaultConfig.add_button_text]
-          ])
-        });
-      }
-
-      setupEventListeners();
-    }
-
-    function setupEventListeners() {
-      document.getElementById('add-recipe-btn').addEventListener('click', openAddModal);
-      document.getElementById('close-modal').addEventListener('click', closeModal);
-      document.getElementById('cancel-btn').addEventListener('click', closeModal);
-      document.getElementById('recipe-form').addEventListener('submit', handleSubmit);
-      
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-          e.target.classList.add('active');
-          currentFilter = e.target.dataset.category;
-          renderRecipes();
-        });
+    /************ UI wiring ************/
+    $('#addBtn').addEventListener('click', () => openAdd());
+    $('#closeModal').addEventListener('click', closeModal);
+    $('#cancelBtn').addEventListener('click', closeModal);
+    document.querySelectorAll('[data-filter]').forEach(b => {
+      b.addEventListener('click', (e) => {
+        document.querySelectorAll('[data-filter]').forEach(x => x.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        filter = e.currentTarget.getAttribute('data-filter');
+        render();
       });
+    });
 
-      // image scanning
-      const recipePhotoInput = document.getElementById('recipe-photo');
-      const recipePhotoPreview = document.getElementById('recipe-photo-preview');
-      const scanPhotoBtn = document.getElementById('scan-photo-btn');
-      const scanPhotoProgress = document.getElementById('scan-photo-progress');
+    photoEl.addEventListener('change', () => previewImage(photoEl, photoPreview));
+    finishedEl.addEventListener('change', () => previewImage(finishedEl, finishedPreview));
 
-      recipePhotoInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          recipePhotoPreview.src = ev.target.result;
-          recipePhotoPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-      });
-
-      scanPhotoBtn.addEventListener('click', async () => {
-        const file = recipePhotoInput.files && recipePhotoInput.files[0];
-        if (!file) {
-          alert('Please choose a photo first.');
-          return;
-        }
-        scanPhotoBtn.disabled = true;
-        scanPhotoProgress.style.display = 'inline';
-        scanPhotoProgress.textContent = 'Starting OCR...';
-        try {
-          const text = await recognizeImageFile(file, (p) => {
-            scanPhotoProgress.textContent = `Scanning photo: ${Math.round(p * 100)}%`;
-          });
-          scanPhotoProgress.textContent = 'Parsing text...';
-          const parsed = parseRecognizedText(text);
-          fillFormFromParsed(parsed);
-          scanPhotoProgress.textContent = 'Done.';
-        } catch (err) {
-          console.error(err);
-          alert('Failed to scan photo. Try a clearer image or crop it to the recipe text.');
-          scanPhotoProgress.textContent = '';
-        } finally {
-          scanPhotoBtn.disabled = false;
-          setTimeout(() => scanPhotoProgress.style.display = 'none', 1200);
-        }
-      });
-
-      // video analysis
-      const recipeVideoInput = document.getElementById('recipe-video');
-      const analyzeVideoBtn = document.getElementById('analyze-video-btn');
-      const analyzeVideoProgress = document.getElementById('analyze-video-progress');
-
-      analyzeVideoBtn.addEventListener('click', async () => {
-        const file = recipeVideoInput.files && recipeVideoInput.files[0];
-        if (!file) {
-          alert('Please choose a video file first.');
-          return;
-        }
-        analyzeVideoBtn.disabled = true;
-        analyzeVideoProgress.style.display = 'inline';
-        analyzeVideoProgress.textContent = 'Preparing video...';
-        try {
-          const aggregatedText = await analyzeVideoForOCR(file, (status) => {
-            analyzeVideoProgress.textContent = status;
-          });
-          const parsed = parseRecognizedText(aggregatedText);
-          fillFormFromParsed(parsed);
-          analyzeVideoProgress.textContent = 'Done.';
-        } catch (err) {
-          console.error(err);
-          alert('Failed to analyze video. Try a short clip or a video with clear frames.');
-          analyzeVideoProgress.textContent = '';
-        } finally {
-          analyzeVideoBtn.disabled = false;
-          setTimeout(() => analyzeVideoProgress.style.display = 'none', 1200);
-        }
-      });
-
-      // finished photo preview
-      const finishedPhotoInput = document.getElementById('finished-photo');
-      const finishedPhotoPreview = document.getElementById('finished-photo-preview');
-      finishedPhotoInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          finishedPhotoPreview.src = ev.target.result;
-          finishedPhotoPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-      });
-
-    }
-
-    function openAddModal() {
-      if (recipes.length >= 999) {
-        return;
+    scanBtn.addEventListener('click', async () => {
+      const f = photoEl.files && photoEl.files[0];
+      if (!f) return alert('Choose a recipe photo first.');
+      scanProgress.textContent = 'Scanning...';
+      try {
+        const text = await ocrFile(f, p => { scanProgress.textContent = `Scanning ${Math.round(p*100)}%`; });
+        const parsed = parseText(text);
+        if (parsed.name) nameEl.value = parsed.name;
+        if (parsed.ingredients) ingEl.value = parsed.ingredients;
+        if (parsed.instructions) instEl.value = parsed.instructions;
+        scanProgress.textContent = 'Done.';
+      } catch (e) {
+        console.error(e);
+        scanProgress.textContent = 'Failed to scan.';
+        alert('OCR failed. Try a clearer photo.');
+      } finally {
+        setTimeout(() => scanProgress.textContent = '', 1200);
       }
-      editingRecipeId = null;
-      document.getElementById('modal-title').textContent = 'Add New Recipe';
-      document.getElementById('recipe-form').reset();
-      document.getElementById('recipe-photo-preview').style.display = 'none';
-      document.getElementById('finished-photo-preview').style.display = 'none';
-      document.getElementById('recipe-modal').classList.add('active');
-    }
+    });
 
-    function openEditModal(recipe) {
-      editingRecipeId = recipe.__backendId;
-      document.getElementById('modal-title').textContent = 'Edit Recipe';
-      document.getElementById('recipe-name').value = recipe.name;
-      document.getElementById('recipe-category').value = recipe.category;
-      document.getElementById('recipe-ingredients').value = recipe.ingredients;
-      document.getElementById('recipe-instructions').value = recipe.instructions;
-
-      // show finished photo preview if present
-      if (recipe.finishedPhoto) {
-        const fp = document.getElementById('finished-photo-preview');
-        fp.src = recipe.finishedPhoto;
-        fp.style.display = 'block';
-      } else {
-        document.getElementById('finished-photo-preview').style.display = 'none';
+    analyzeBtn.addEventListener('click', async () => {
+      const f = videoEl.files && videoEl.files[0];
+      if (!f) return alert('Choose a video first.');
+      try {
+        analyzeProgress.textContent = 'Preparing video...';
+        const text = await ocrVideo(f, (s) => analyzeProgress.textContent = s);
+        const parsed = parseText(text);
+        if (parsed.name) nameEl.value = parsed.name;
+        if (parsed.ingredients) ingEl.value = parsed.ingredients;
+        if (parsed.instructions) instEl.value = parsed.instructions;
+        analyzeProgress.textContent = 'Done.';
+      } catch (e) {
+        console.error(e);
+        analyzeProgress.textContent = 'Failed to analyze.';
+      } finally {
+        setTimeout(() => analyzeProgress.textContent = '', 1200);
       }
+    });
 
-      document.getElementById('recipe-modal').classList.add('active');
-    }
-
-    function closeModal() {
-      document.getElementById('recipe-modal').classList.remove('active');
-      editingRecipeId = null;
-    }
-
-    async function handleSubmit(e) {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      const submitBtn = document.getElementById('submit-btn');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Saving...';
-      
-      const formData = {
-        name: document.getElementById('recipe-name').value,
-        category: document.getElementById('recipe-category').value,
-        ingredients: document.getElementById('recipe-ingredients').value,
-        instructions: document.getElementById('recipe-instructions').value
+      $('#saveBtn').disabled = true;
+      $('#saveBtn').textContent = 'Saving...';
+
+      const rec = {
+        name: nameEl.value.trim(),
+        category: catEl.value,
+        ingredients: ingEl.value.trim(),
+        instructions: instEl.value.trim(),
+        rating: 0,
+        createdAt: new Date().toISOString(),
       };
 
-      // read finished photo into dataURL (if chosen)
-      const finishedInput = document.getElementById('finished-photo');
-      if (finishedInput.files && finishedInput.files[0]) {
-        try {
-          formData.finishedPhoto = await fileToDataURL(finishedInput.files[0]);
-        } catch (err) {
-          console.warn('Failed to read finished photo', err);
-        }
+      // Read images to data URLs (so they're persisted in localStorage)
+      if (finishedEl.files && finishedEl.files[0]) {
+        rec.finishedPhoto = await fileToDataURL(finishedEl.files[0]).catch(()=>null);
+      }
+      if (photoEl.files && photoEl.files[0]) {
+        rec.sourcePhoto = await fileToDataURL(photoEl.files[0]).catch(()=>null);
       }
 
-      // also save the OCR source photo (optional)
-      const recipePhotoInput = document.getElementById('recipe-photo');
-      if (recipePhotoInput.files && recipePhotoInput.files[0]) {
-        try {
-          formData.sourcePhoto = await fileToDataURL(recipePhotoInput.files[0]);
-        } catch (err) {
-          console.warn('Failed to read source photo', err);
-        }
-      }
-
-      
-      if (editingRecipeId) {
-        const recipe = recipes.find(r => r.__backendId === editingRecipeId);
-        if (recipe && window.dataSdk) {
-          const result = await window.dataSdk.update({
-            ...recipe,
-            ...formData
-          });
-          
-          if (result.isOk) {
-            closeModal();
-          } else {
-            alert('Failed to update recipe. Please try again.');
-          }
-        }
+      if (editingId) {
+        const i = recipes.findIndex(r => r.__id === editingId);
+        if (i >= 0) recipes[i] = { ...recipes[i], ...rec };
+        editingId = null;
       } else {
         if (recipes.length >= 999) {
-          alert('Maximum limit of 999 recipes reached. Please delete some recipes first.');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Save Recipe';
-          return;
+          alert('Maximum 999 recipes reached.');
+          $('#saveBtn').disabled = false; $('#saveBtn').textContent = 'Save Recipe'; return;
         }
-        
-        if (window.dataSdk) {
-          const result = await window.dataSdk.create({
-            id: Date.now().toString(),
-            ...formData,
-            rating: 0,
-            createdAt: new Date().toISOString()
-          });
-          
-          if (result.isOk) {
-            closeModal();
-          } else {
-            alert('Failed to create recipe. Please try again.');
-          }
-        }
+        rec.__id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+        recipes.push(rec);
       }
-      
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Save Recipe';
-    }
+      save(recipes);
+      closeModal();
+      render();
 
-    async function updateRating(recipe, newRating) {
-      if (window.dataSdk) {
-        const result = await window.dataSdk.update({
-          ...recipe,
-          rating: newRating
-        });
-        
-        if (!result.isOk) {
-          alert('Failed to update rating. Please try again.');
-        }
-      }
-    }
+      $('#saveBtn').disabled = false;
+      $('#saveBtn').textContent = 'Save Recipe';
+    });
 
-    async function deleteRecipe(recipe) {
-      const deleteBtn = event.target;
-      const originalText = deleteBtn.textContent;
-      
-      if (deleteBtn.textContent === 'Delete') {
-        deleteBtn.textContent = 'Confirm?';
-        deleteBtn.style.background = '#d32f2f';
-        
-        setTimeout(() => {
-          if (deleteBtn.textContent === 'Confirm?') {
-            deleteBtn.textContent = originalText;
-            deleteBtn.style.background = '#f44336';
-          }
-        }, 3000);
-        return;
-      }
-      
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Deleting...';
-      
-      if (window.dataSdk) {
-        const result = await window.dataSdk.delete(recipe);
-        
-        if (!result.isOk) {
-          alert('Failed to delete recipe. Please try again.');
-          deleteBtn.disabled = false;
-          deleteBtn.textContent = originalText;
-        }
-      }
+    function openAdd(){
+      editingId = null;
+      modalTitle.textContent = 'Add New Recipe';
+      form.reset();
+      photoPreview.style.display = 'none';
+      finishedPreview.style.display = 'none';
+      modal.classList.add('active');
     }
+    function openEdit(recipe){
+      editingId = recipe.__id;
+      modalTitle.textContent = 'Edit Recipe';
+      nameEl.value = recipe.name || '';
+      catEl.value = recipe.category || '';
+      ingEl.value = recipe.ingredients || '';
+      instEl.value = recipe.instructions || '';
+      if (recipe.finishedPhoto){ finishedPreview.src = recipe.finishedPhoto; finishedPreview.style.display='block'; }
+      else finishedPreview.style.display='none';
+      modal.classList.add('active');
+    }
+    function closeModal(){ modal.classList.remove('active'); }
 
-    function renderRecipes() {
-      const grid = document.getElementById('recipe-grid');
-      const filteredRecipes = currentFilter === 'all' 
-        ? recipes 
-        : recipes.filter(r => r.category === currentFilter);
-      
-      if (filteredRecipes.length === 0) {
+    function render(){
+      limit.style.display = recipes.length >= 999 ? 'block' : 'none';
+
+      const list = filter === 'all' ? recipes : recipes.filter(r => r.category === filter);
+      if (!list.length){
         grid.innerHTML = `
-          <div class="empty-state">
-            <h2>No recipes yet!</h2>
-            <p>Click "Add New Recipe" to get started 🍰</p>
-          </div>
-        `;
+          <div class="card text-center">
+            <h2 class="text-xl m-0">No recipes yet!</h2>
+            <p>Click “Add New Recipe” to get started 🍰</p>
+          </div>`;
         return;
       }
-      
-      const existingCards = new Map(
-        [...grid.children].map(el => [el.dataset.recipeId, el])
-      );
-      
-      filteredRecipes.forEach(recipe => {
-        if (existingCards.has(recipe.__backendId)) {
-          updateRecipeCard(existingCards.get(recipe.__backendId), recipe);
-          existingCards.delete(recipe.__backendId);
-        } else {
-          grid.appendChild(createRecipeCard(recipe));
-        }
-      });
-      
-      existingCards.forEach(el => el.remove());
+      grid.innerHTML = '';
+      list.forEach(r => grid.appendChild(recipeCard(r)));
     }
 
-    function createRecipeCard(recipe) {
+    function recipeCard(r){
       const card = document.createElement('div');
-      card.className = 'recipe-card';
-      card.dataset.recipeId = recipe.__backendId;
-      updateRecipeCard(card, recipe);
+      card.className = 'card';
+
+      const photoTop = r.finishedPhoto
+        ? `<div class="text-center mb-3"><img src="${r.finishedPhoto}" alt="Finished photo" style="max-width:100%;border-radius:10px;object-fit:cover"></div>`
+        : '';
+
+      card.innerHTML = `
+        ${photoTop}
+        <div class="flex items-start justify-between mb-2">
+          <h3 class="m-0 text-lg" style="color:var(--text)">${esc(r.name)}</h3>
+          <span class="chip">${esc(r.category || '')}</span>
+        </div>
+
+        <div class="rating" data-id="${r.__id}">
+          ${[1,2,3,4,5].map(n => `<span class="star ${n<= (r.rating||0) ? 'filled':'empty'}" data-rating="${n}">★</span>`).join('')}
+        </div>
+
+        <div class="mb-2">
+          <h4 class="m-0 text-sm">Ingredients</h4>
+          <p class="m-0 whitespace-pre-line">${esc(r.ingredients || '')}</p>
+        </div>
+        <div>
+          <h4 class="m-0 text-sm">Instructions</h4>
+          <p class="m-0 whitespace-pre-line">${esc(r.instructions || '')}</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mt-3">
+          <button class="btn btn-secondary edit">Edit</button>
+          <button class="btn btn-primary delete" style="background:#f44336">Delete</button>
+        </div>
+      `;
+
+      // Rating
+      card.querySelector('.rating').addEventListener('click', (e) => {
+        if (!e.target.classList.contains('star')) return;
+        const rating = parseInt(e.target.getAttribute('data-rating'), 10);
+        const i = recipes.findIndex(x => x.__id === r.__id);
+        if (i >= 0){ recipes[i].rating = rating; save(recipes); render(); }
+      });
+
+      // Edit / Delete
+      card.querySelector('.edit').addEventListener('click', () => openEdit(r));
+      card.querySelector('.delete').addEventListener('click', () => confirmDelete(r));
+
       return card;
     }
 
-    function updateRecipeCard(card, recipe) {
-      const config = window.elementSdk?.config || defaultConfig;
-      card.style.background = config.surface_color || defaultConfig.surface_color;
-      
-      // finished photo (if present) displayed above title
-      const finishedHtml = recipe.finishedPhoto ? `<div style="text-align:center; margin-bottom:1rem;"><img src="${recipe.finishedPhoto}" alt="Finished photo" style="max-width:100%; border-radius:8px; object-fit:cover;"/></div>` : '';
-
-      card.innerHTML = `
-        ${finishedHtml}
-        <div class="recipe-header">
-          <h2 class="recipe-title" style="color: ${config.text_color || defaultConfig.text_color}">${escapeHtml(recipe.name || '')}</h2>
-          <span class="recipe-category">${escapeHtml(recipe.category || '')}</span>
-        </div>
-        <div class="rating" data-recipe-id="${recipe.__backendId}">
-          ${[1,2,3,4,5].map(star => 
-            `<span class="star ${star <= (recipe.rating||0) ? 'filled' : 'empty'}" data-rating="${star}">★</span>`
-          ).join('')}
-        </div>
-        <div class="recipe-section">
-          <h3>Ingredients</h3>
-          <p>${escapeHtml(recipe.ingredients || '')}</p>
-        </div>
-        <div class="recipe-section">
-          <h3>Instructions</h3>
-          <p>${escapeHtml(recipe.instructions || '')}</p>
-        </div>
-        <div class="recipe-actions">
-          <button class="edit-btn" style="background: ${config.secondary_action_color || defaultConfig.secondary_action_color}">Edit</button>
-          <button class="delete-btn">Delete</button>
-        </div>
-      `;
-      
-      // attach listeners
-      const ratingEl = card.querySelector('.rating');
-      if (ratingEl) {
-        ratingEl.addEventListener('click', (e) => {
-          if (e.target.classList.contains('star')) {
-            const rating = parseInt(e.target.dataset.rating);
-            updateRating(recipe, rating);
-          }
-        });
-      }
-      
-      const editBtn = card.querySelector('.edit-btn');
-      if (editBtn) editBtn.addEventListener('click', () => openEditModal(recipe));
-      const deleteBtn = card.querySelector('.delete-btn');
-      if (deleteBtn) deleteBtn.addEventListener('click', () => deleteRecipe(recipe));
+    function confirmDelete(r){
+      if (!confirm(`Delete "${r.name}"?`)) return;
+      recipes = recipes.filter(x => x.__id !== r.__id);
+      save(recipes);
+      render();
     }
 
-    function updateLimitWarning() {
-      const warning = document.getElementById('limit-warning');
-      if (recipes.length >= 999) {
-        warning.style.display = 'block';
-      } else {
-        warning.style.display = 'none';
-      }
-    }
-
-    // Utilities
-
-    function fileToDataURL(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+    /************ OCR helpers ************/
+    async function fileToDataURL(file){
+      return new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = e => res(e.target.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(file);
       });
     }
-
-    // Tesseract wrapper for a File object
-    async function recognizeImageFile(file, onProgress) {
-      // convert file to blob URL or dataURL
+    function previewImage(input, imgEl){
+      const f = input.files && input.files[0];
+      if (!f){ imgEl.style.display='none'; return; }
+      const fr = new FileReader();
+      fr.onload = e => { imgEl.src = e.target.result; imgEl.style.display='block'; };
+      fr.readAsDataURL(f);
+    }
+    async function ocrFile(file, onProgress){
       const dataUrl = await fileToDataURL(file);
-      // Tesseract expects a URL or image element
       return new Promise((resolve, reject) => {
-        Tesseract.recognize(dataUrl, 'eng', {
-          logger: (m) => {
-            if (onProgress && m && m.progress) onProgress(m.progress);
-          }
-        }).then(({ data: { text } }) => resolve(text))
+        Tesseract.recognize(dataUrl, 'eng', { logger: m => { if (onProgress && m.progress) onProgress(m.progress); } })
+          .then(({ data:{ text } }) => resolve(text))
           .catch(reject);
       });
     }
-
-    // Parse OCR text into name, ingredients, instructions heuristically
-    function parseRecognizedText(text) {
-      // Normalize whitespace and split to lines
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      let name = '';
-      let ingredients = '';
-      let instructions = '';
-
-      if (lines.length === 0) return { name, ingredients, instructions, raw: text };
-
-      // Heuristic: first line likely the name
-      name = lines[0];
-
-      // Look for sections by keyword
-      const joined = lines.join('\n').toLowerCase();
-      const ingredientsIndex = lines.findIndex(l => /ingredient[s]?\b/i.test(l));
-      const instructionsIndex = lines.findIndex(l => /instruction[s]?\b|method\b|directions\b/i.test(l));
-
-      if (ingredientsIndex >= 0 && instructionsIndex >= 0) {
-        ingredients = lines.slice(ingredientsIndex + 1, instructionsIndex).join('\n');
-        instructions = lines.slice(instructionsIndex + 1).join('\n');
-      } else if (ingredientsIndex >= 0) {
-        ingredients = lines.slice(ingredientsIndex + 1).join('\n');
-        instructions = lines.slice(ingredientsIndex + 1 + Math.max(5, Math.floor(lines.length/3))).join('\n');
-      } else if (instructionsIndex >= 0) {
-        ingredients = lines.slice(1, instructionsIndex).join('\n');
-        instructions = lines.slice(instructionsIndex + 1).join('\n');
+    function parseText(text){
+      const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return { name:'', ingredients:'', instructions:'' };
+      let name = lines[0];
+      const idxIng = lines.findIndex(l => /ingredient[s]?\b/i.test(l));
+      const idxIns = lines.findIndex(l => /instruction[s]?\b|method\b|directions\b/i.test(l));
+      let ingredients='', instructions='';
+      if (idxIng >= 0 && idxIns >= 0){
+        ingredients = lines.slice(idxIng+1, idxIns).join('\n');
+        instructions = lines.slice(idxIns+1).join('\n');
+      } else if (idxIns >= 0){
+        ingredients = lines.slice(1, idxIns).join('\n');
+        instructions = lines.slice(idxIns+1).join('\n');
       } else {
-        // fallback: try to detect bullets/numbered steps
         const stepStart = lines.findIndex(l => /^\d+[\).]/.test(l));
-        if (stepStart >= 0) {
+        if (stepStart >= 0){
           ingredients = lines.slice(1, stepStart).join('\n');
           instructions = lines.slice(stepStart).join('\n');
         } else {
-          // naive split: first third ingredients, remainder instructions
-          const splitPoint = Math.max(1, Math.floor(lines.length/3));
-          ingredients = lines.slice(1, splitPoint + 1).join('\n');
-          instructions = lines.slice(splitPoint + 1).join('\n');
+          const split = Math.max(1, Math.floor(lines.length/3));
+          ingredients = lines.slice(1, split+1).join('\n');
+          instructions = lines.slice(split+1).join('\n');
         }
       }
-
-      // Cleanup: if ingredients/instructions are empty, attempt to pick lines that look like ingredient lists
-      if (!ingredients.trim()) {
-        const ingLines = lines.filter(l => /cup|tbsp|tsp|g\b|grams|oz|ounce|fl oz|ml|pinch|kg|tablespoon|teaspoon/i.test(l));
+      if (!ingredients.trim()){
+        const ingLines = lines.filter(l => /cup|tbsp|tsp|g\b|grams|oz|ml|pinch|kg|tablespoon|teaspoon/i.test(l));
         if (ingLines.length) ingredients = ingLines.join('\n');
       }
-
-      // return parsed
-      return { name: name || '', ingredients: ingredients || '', instructions: instructions || '', raw: text };
+      return { name, ingredients, instructions };
     }
-
-    function fillFormFromParsed(parsed) {
-      if (parsed.name) document.getElementById('recipe-name').value = parsed.name;
-      if (parsed.ingredients) document.getElementById('recipe-ingredients').value = parsed.ingredients;
-      if (parsed.instructions) document.getElementById('recipe-instructions').value = parsed.instructions;
-    }
-
-    // Analyze video by sampling N frames evenly across duration, OCR'ing each
-    async function analyzeVideoForOCR(file, setStatus) {
-      // Limit to small number of frames to avoid blocking
-      const MAX_FRAMES = 3;
+    async function ocrVideo(file, setStatus){
+      const MAX = 3;
       const url = URL.createObjectURL(file);
-      const video = document.getElementById('hidden-video');
-      const canvas = document.getElementById('video-canvas');
+      const video = document.getElementById('hiddenVideo');
+      const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-
       return new Promise((resolve, reject) => {
-        video.src = url;
-        video.preload = 'metadata';
-        video.muted = true;
-
-        const cleanUp = () => {
-          try { URL.revokeObjectURL(url); } catch {}
-          video.pause();
-          video.removeAttribute('src');
-        };
-
+        const cleanup = () => { try{URL.revokeObjectURL(url);}catch{} video.pause(); video.removeAttribute('src'); };
         video.onloadedmetadata = async () => {
-          const duration = video.duration || 0;
-          if (!duration || !isFinite(duration)) {
-            cleanUp();
-            return reject(new Error('Unable to read video duration'));
-          }
-
-          const sampleTimes = [];
-          for (let i = 1; i <= Math.min(MAX_FRAMES, Math.ceil(duration)); i++) {
-            sampleTimes.push((i / (Math.min(MAX_FRAMES, Math.ceil(duration)) + 1)) * duration);
-          }
-
-          let aggregatedText = '';
-          for (let i = 0; i < sampleTimes.length; i++) {
-            const t = sampleTimes[i];
-            setStatus && setStatus(`Seeking to ${Math.round(t)}s (${i+1}/${sampleTimes.length})`);
-            await seekVideo(video, t);
-            // set canvas size from current frame
+          const dur = video.duration || 0;
+          if (!dur || !isFinite(dur)){ cleanup(); return reject(new Error('Bad video')); }
+          const frames = Math.min(MAX, Math.ceil(dur));
+          const times = Array.from({length:frames}, (_,i)=> (i+1)/(frames+1)*dur);
+          let text = '';
+          for (let i=0;i<times.length;i++){
+            const t = times[i];
+            setStatus && setStatus(`Frame ${i+1}/${frames}…`);
+            await seek(video, t);
             canvas.width = Math.min(video.videoWidth, 1280);
             canvas.height = Math.min(video.videoHeight, 720);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            // convert to blob for Tesseract
             const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-            setStatus && setStatus(`OCR frame ${i+1}/${sampleTimes.length}...`);
-            try {
-              const text = await recognizeImageFile(blob, (p) => {
-                // optional per-frame progress
-              });
-              aggregatedText += '\n' + text;
-            } catch (err) {
-              console.warn('Frame OCR failed', err);
-            }
+            try{
+              const part = await ocrFile(blob);
+              text += '\n' + part;
+            }catch(e){ console.warn('frame OCR failed', e); }
           }
-          cleanUp();
-          resolve(aggregatedText);
+          cleanup();
+          resolve(text);
         };
-
-        video.onerror = (e) => {
-          cleanUp();
-          reject(new Error('Video load error'));
-        };
+        video.onerror = () => { cleanup(); reject(new Error('Video load error')); };
+        video.src = url;
+        video.preload = 'metadata';
+        video.muted = true;
+      });
+    }
+    function seek(video, t){
+      return new Promise((res) => {
+        const onSeeked = () => { video.removeEventListener('seeked', onSeeked); res(); };
+        video.addEventListener('seeked', onSeeked);
+        video.currentTime = Math.min(Math.max(0,t), Math.max(0, (video.duration||0) - .1));
+        setTimeout(() => { video.removeEventListener('seeked', onSeeked); res(); }, 3000); // fallback
       });
     }
 
-    function seekVideo(videoEl, time) {
-      return new Promise((resolve, reject) => {
-        const onSeeked = () => {
-          videoEl.removeEventListener('seeked', onSeeked);
-          resolve();
-        };
-        videoEl.addEventListener('seeked', onSeeked);
-        videoEl.currentTime = Math.min(videoEl.duration - 0.1, Math.max(0, time));
-        // fallback timeout
-        setTimeout(() => {
-          videoEl.removeEventListener('seeked', onSeeked);
-          resolve();
-        }, 3000);
-      });
-    }
+    /************ Utility ************/
+    function esc(s){ return String(s||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 
-    // Escape HTML for safe insertion
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/\n/g, '<br/>');
-    }
-
-    initializeApp();
+    /************ Boot ************/
+    render();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99a7600e54cb36e7',t:'MTc2MjQ2MTMwNC4wMD[...]
+</body>
 </html>
