@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>My Recipe Collection</title>
 
-  <!-- Tailwind utilities -->
   <script src="https://cdn.tailwindcss.com" defer></script>
-  <!-- Tesseract.js for client-side OCR -->
   <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
 
   <style>
@@ -31,7 +29,7 @@
     .input,.select,.textarea{width:100%;padding:.75rem;border:2px solid #ddd;border-radius:8px;font:inherit}
     .textarea{min-height:110px;resize:vertical}
     .limit{background:#fff3cd;border:2px solid #ffc107;color:#7a5d00;padding:1rem;border-radius:10px;text-align:center;font-weight:700;margin:1rem 0}
-    .thumb{width:120px;height:90px;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb}
+    .thumb{max-width:160px;max-height:120px;border-radius:8px;display:block;margin-top:.5rem;object-fit:cover;border:1px solid #e5e7eb}
   </style>
 </head>
 <body>
@@ -94,19 +92,19 @@
           <textarea id="instructions" class="textarea" required placeholder="Step-by-step"></textarea>
         </div>
 
-        <!-- MULTI-PHOTO OCR -->
+        <!-- OCR from image -->
         <div>
-          <label for="photos">Upload recipe photos (you can choose multiple)</label>
-          <input id="photos" type="file" accept="image/*" class="input" multiple>
-          <div id="photosPreview" class="mt-2 flex flex-wrap gap-2"></div>
+          <label for="photo">Upload recipe photo (scan to fill form)</label>
+          <input id="photo" type="file" accept="image/*" class="input">
+          <img id="photoPreview" class="thumb" style="display:none" alt="Recipe photo preview">
           <div class="mt-2 flex items-center gap-2">
-            <button id="scanBtn" type="button" class="btn btn-secondary">Scan Photos</button>
+            <button id="scanBtn" type="button" class="btn btn-secondary">Scan Photo</button>
             <span id="scanProgress" class="text-sm"></span>
           </div>
-          <div class="text-xs text-gray-600 mt-1">Tip: crop each photo tightly around the recipe text for best results.</div>
+          <div class="text-xs text-gray-600 mt-1">Tip: crop screenshots to only the recipe text for best accuracy.</div>
         </div>
 
-        <!-- VIDEO OCR (optional) -->
+        <!-- OCR from video -->
         <div>
           <label for="video">Upload video (sample frames to OCR)</label>
           <input id="video" type="file" accept="video/*" class="input">
@@ -120,7 +118,7 @@
         <div>
           <label for="finished">Upload finished-photo (shown above recipe)</label>
           <input id="finished" type="file" accept="image/*" class="input">
-          <img id="finishedPreview" class="thumb mt-2" style="display:none" alt="Finished photo preview">
+          <img id="finishedPreview" class="thumb" style="display:none" alt="Finished photo preview">
         </div>
 
         <div class="grid grid-cols-2 gap-3 mt-2">
@@ -131,26 +129,26 @@
     </div>
   </div>
 
-  <!-- Hidden for OCR work -->
+  <!-- Hidden elements for OCR -->
   <video id="hiddenVideo" style="display:none"></video>
   <canvas id="canvas" style="display:none"></canvas>
 
   <script>
-/* ========= storage ========= */
+/* ====== storage + state ====== */
 const KEY='recipes_v1';
-const load=()=>{ try{return JSON.parse(localStorage.getItem(KEY))||[]}catch{return[]} };
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||[]}catch{return[]}};
 const save=a=>localStorage.setItem(KEY,JSON.stringify(a));
-
-/* ========= state & elements ========= */
 let recipes=load(), filter='all', editingId=null;
+
+/* ====== elements ====== */
 const $=s=>document.querySelector(s);
 const grid=$('#grid'), limit=$('#limit'), modal=$('#modal'), form=$('#form'), modalTitle=$('#modalTitle');
 const nameEl=$('#name'), catEl=$('#cat'), ingEl=$('#ingredients'), instEl=$('#instructions');
-const finishedEl=$('#finished'), finishedPreview=$('#finishedPreview');
-const photosEl=$('#photos'), photosPreview=$('#photosPreview'), scanBtn=$('#scanBtn'), scanProgress=$('#scanProgress');
+const photoEl=$('#photo'), photoPreview=$('#photoPreview'), scanBtn=$('#scanBtn'), scanProgress=$('#scanProgress');
 const videoEl=$('#video'), analyzeBtn=$('#analyzeBtn'), analyzeProgress=$('#analyzeProgress');
+const finishedEl=$('#finished'), finishedPreview=$('#finishedPreview');
 
-/* ========= events ========= */
+/* ====== events ====== */
 $('#addBtn').addEventListener('click',openAdd);
 $('#closeModal').addEventListener('click',closeModal);
 $('#cancelBtn').addEventListener('click',closeModal);
@@ -160,55 +158,34 @@ document.querySelectorAll('[data-filter]').forEach(b=>{
     e.currentTarget.classList.add('active'); filter=e.currentTarget.dataset.filter; render();
   });
 });
+photoEl.addEventListener('change',()=>previewImage(photoEl,photoPreview));
 finishedEl.addEventListener('change',()=>previewImage(finishedEl,finishedPreview));
-photosEl.addEventListener('change',()=>{
-  photosPreview.innerHTML=''; const files=[...(photosEl.files||[])];
-  files.forEach(file=>{
-    const img=document.createElement('img'); img.className='thumb'; img.alt='Recipe photo preview';
-    const fr=new FileReader(); fr.onload=e=>img.src=e.target.result; fr.readAsDataURL(file);
-    photosPreview.appendChild(img);
-  });
-});
 
 scanBtn.addEventListener('click',async()=>{
-  const files=[...(photosEl.files||[])];
-  if(!files.length) return alert('Choose one or more recipe photos first.');
-
+  const file=photoEl.files&&photoEl.files[0]; if(!file) return alert('Choose a recipe photo first.');
+  scanProgress.textContent='Preprocessing...';
   try{
-    const results=[];
-    for(let i=0;i<files.length;i++){
-      const f=files[i];
-      scanProgress.textContent=`Photo ${i+1}/${files.length}: preprocessing...`;
-      const pre=await preprocessImage(f);
-
-      scanProgress.textContent=`Photo ${i+1}: scanning (mode A)...`;
-      const a=await runOCR(pre,{psm:6});   // block of text
-
-      scanProgress.textContent=`Photo ${i+1}: scanning (mode B)...`;
-      const b=await runOCR(pre,{psm:3});   // auto page
-
-      results.push((a.avgConf>=b.avgConf)?a:b);
-    }
-
-    const merged=mergeOCRResults(results);
-    const parsed=merged.parsedFromWords || parsePlainText(merged.textAll);
-
+    const pre=await preprocessImage(file); // canvas processed dataURL
+    scanProgress.textContent='Scanning (mode A)...';
+    const a=await runOCR(pre,{ psm:6 });   // assume single uniform block of text
+    scanProgress.textContent='Scanning (mode B)...';
+    const b=await runOCR(pre,{ psm:3 });   // fully automatic page segmentation
+    const best=(a.avgConf>=b.avgConf)?a:b;
+    const parsed=parseFromWords(best);     // smarter parser with columns
     if(parsed.name) nameEl.value=parsed.name;
     if(parsed.ingredients) ingEl.value=parsed.ingredients;
     if(parsed.instructions) instEl.value=parsed.instructions;
-
-    const conf=Math.round(avg(results.map(r=>r.avgConf)));
-    scanProgress.textContent=`Done (avg confidence ~${conf}).`;
+    scanProgress.textContent=`Done (confidence ${Math.round(best.avgConf)}).`;
   }catch(err){
-    console.error(err); alert('Scanning failed. Try clearer photos and crop to the text.');
+    console.error(err); alert('Scan failed. Try cropping to the recipe text or a clearer photo.');
     scanProgress.textContent='Failed';
   }finally{ setTimeout(()=>scanProgress.textContent='',1500); }
 });
 
 analyzeBtn.addEventListener('click',async()=>{
   const f=videoEl.files&&videoEl.files[0]; if(!f) return alert('Choose a video first.');
+  analyzeProgress.textContent='Preparing video...';
   try{
-    analyzeProgress.textContent='Preparing video...';
     const text=await ocrVideo(f,(s)=>analyzeProgress.textContent=s);
     const parsed=parsePlainText(text);
     if(parsed.name) nameEl.value=parsed.name;
@@ -222,57 +199,23 @@ analyzeBtn.addEventListener('click',async()=>{
 form.addEventListener('submit',async(e)=>{
   e.preventDefault();
   $('#saveBtn').disabled=true; $('#saveBtn').textContent='Saving...';
-
-  const rec={
-    name:nameEl.value.trim(),
-    category:catEl.value,
-    ingredients:ingEl.value.trim(),
-    instructions:instEl.value.trim(),
-    rating:0,
-    createdAt:new Date().toISOString()
-  };
-
-  // save finished photo
-  if (finishedEl.files && finishedEl.files[0]) {
-    rec.finishedPhoto = await fileToDataURL(finishedEl.files[0]).catch(()=>null);
-  }
-  // save source photos (optional)
-  if (photosEl.files && photosEl.files.length) {
-    rec.sourcePhotos = [];
-    for (const f of photosEl.files) {
-      try { rec.sourcePhotos.push(await fileToDataURL(f)); } catch {}
-    }
-  }
-
-  if (editingId) {
-    const i=recipes.findIndex(r=>r.__id===editingId);
-    if(i>=0) recipes[i]={...recipes[i],...rec};
-    editingId=null;
-  } else {
-    if(recipes.length>=999){ alert('Maximum 999 recipes reached.'); $('#saveBtn').disabled=false; $('#saveBtn').textContent='Save Recipe'; return; }
-    rec.__id=crypto.randomUUID?crypto.randomUUID():String(Date.now());
-    recipes.push(rec);
-  }
-  save(recipes); closeModal(); render();
-  $('#saveBtn').disabled=false; $('#saveBtn').textContent='Save Recipe';
+  const rec={ name:nameEl.value.trim(), category:catEl.value, ingredients:ingEl.value.trim(), instructions:instEl.value.trim(), rating:0, createdAt:new Date().toISOString() };
+  if(finishedEl.files&&finishedEl.files[0]) rec.finishedPhoto=await fileToDataURL(finishedEl.files[0]).catch(()=>null);
+  if(photoEl.files&&photoEl.files[0]) rec.sourcePhoto=await fileToDataURL(photoEl.files[0]).catch(()=>null);
+  if(editingId){ const i=recipes.findIndex(r=>r.__id===editingId); if(i>=0) recipes[i]={...recipes[i],...rec}; editingId=null; }
+  else{ if(recipes.length>=999){ alert('Maximum 999 recipes reached.'); $('#saveBtn').disabled=false; $('#saveBtn').textContent='Save Recipe'; return; }
+        rec.__id=crypto.randomUUID?crypto.randomUUID():String(Date.now()); recipes.push(rec); }
+  save(recipes); closeModal(); render(); $('#saveBtn').disabled=false; $('#saveBtn').textContent='Save Recipe';
 });
 
-/* ========= UI ========= */
-function openAdd(){ editingId=null; modalTitle.textContent='Add New Recipe'; form.reset(); finishedPreview.style.display='none'; photosPreview.innerHTML=''; modal.classList.add('active'); }
-function openEdit(r){
-  editingId=r.__id; modalTitle.textContent='Edit Recipe';
-  nameEl.value=r.name||''; catEl.value=r.category||''; ingEl.value=r.ingredients||''; instEl.value=r.instructions||'';
-  if(r.finishedPhoto){ finishedPreview.src=r.finishedPhoto; finishedPreview.style.display='block'; } else finishedPreview.style.display='none';
-  photosPreview.innerHTML=''; modal.classList.add('active');
-}
+/* ====== UI ====== */
+function openAdd(){ editingId=null; modalTitle.textContent='Add New Recipe'; form.reset(); photoPreview.style.display='none'; finishedPreview.style.display='none'; modal.classList.add('active'); }
+function openEdit(r){ editingId=r.__id; modalTitle.textContent='Edit Recipe'; nameEl.value=r.name||''; catEl.value=r.category||''; ingEl.value=r.ingredients||''; instEl.value=r.instructions||''; if(r.finishedPhoto){finishedPreview.src=r.finishedPhoto;finishedPreview.style.display='block'} else finishedPreview.style.display='none'; modal.classList.add('active'); }
 function closeModal(){ modal.classList.remove('active'); }
 function render(){
   limit.style.display=recipes.length>=999?'block':'none';
   const list=(filter==='all')?recipes:recipes.filter(r=>r.category===filter);
-  if(!list.length){
-    grid.innerHTML=`<div class="card text-center"><h2 class="text-xl m-0">No recipes yet!</h2><p>Click “Add New Recipe” to get started 🍰</p></div>`;
-    return;
-  }
+  if(!list.length){ grid.innerHTML=`<div class="card text-center"><h2 class="text-xl m-0">No recipes yet!</h2><p>Click “Add New Recipe” to get started 🍰</p></div>`; return; }
   grid.innerHTML=''; list.forEach(r=>grid.appendChild(card(r)));
 }
 function card(r){
@@ -280,55 +223,40 @@ function card(r){
   const photo=r.finishedPhoto?`<div class="text-center mb-3"><img src="${r.finishedPhoto}" alt="" style="max-width:100%;border-radius:10px;object-fit:cover"></div>`:'';
   el.innerHTML=`
     ${photo}
-    <div class="flex items-start justify-between mb-2">
-      <h3 class="m-0 text-lg" style="color:var(--text)">${esc(r.name)}</h3>
-      <span class="chip">${esc(r.category||'')}</span>
-    </div>
-    <div class="rating" data-id="${r.__id}">
-      ${[1,2,3,4,5].map(n=>`<span class="star ${n<=(r.rating||0)?'filled':'empty'}" data-rating="${n}">★</span>`).join('')}
-    </div>
+    <div class="flex items-start justify-between mb-2"><h3 class="m-0 text-lg" style="color:var(--text)">${esc(r.name)}</h3><span class="chip">${esc(r.category||'')}</span></div>
+    <div class="rating" data-id="${r.__id}">${[1,2,3,4,5].map(n=>`<span class="star ${n<=(r.rating||0)?'filled':'empty'}" data-rating="${n}">★</span>`).join('')}</div>
     <div class="mb-2"><h4 class="m-0 text-sm">Ingredients</h4><p class="m-0 whitespace-pre-line">${esc(r.ingredients||'')}</p></div>
     <div><h4 class="m-0 text-sm">Instructions</h4><p class="m-0 whitespace-pre-line">${esc(r.instructions||'')}</p></div>
-    <div class="grid grid-cols-2 gap-2 mt-3">
-      <button class="btn btn-secondary edit">Edit</button>
-      <button class="btn btn-primary delete" style="background:#f44336">Delete</button>
-    </div>`;
-  el.querySelector('.rating').addEventListener('click',e=>{
-    if(!e.target.classList.contains('star')) return;
-    const rate=+e.target.dataset.rating; const i=recipes.findIndex(x=>x.__id===r.__id);
-    if(i>=0){ recipes[i].rating=rate; save(recipes); render(); }
-  });
+    <div class="grid grid-cols-2 gap-2 mt-3"><button class="btn btn-secondary edit">Edit</button><button class="btn btn-primary delete" style="background:#f44336">Delete</button></div>`;
+  el.querySelector('.rating').addEventListener('click',e=>{ if(!e.target.classList.contains('star'))return; const rate=+e.target.dataset.rating; const i=recipes.findIndex(x=>x.__id===r.__id); if(i>=0){recipes[i].rating=rate; save(recipes); render();}});
   el.querySelector('.edit').addEventListener('click',()=>openEdit(r));
   el.querySelector('.delete').addEventListener('click',()=>{ if(!confirm(`Delete "${r.name}"?`))return; recipes=recipes.filter(x=>x.__id!==r.__id); save(recipes); render(); });
   return el;
 }
 
-/* ========= OCR: preprocessing + robust parsing + multi-merge ========= */
+/* ====== OCR: preprocessing + robust parsing ====== */
+// Draws to canvas, upscales, grayscale, contrast stretch, adaptive threshold
 async function preprocessImage(file){
   const img=await loadImageFromFile(file);
   const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
-  const targetW=Math.max(1400,img.width), scale=targetW/img.width;
-  const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+  const targetW=Math.max(1400, img.width); const scale=targetW/img.width; const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
   canvas.width=w; canvas.height=h; ctx.drawImage(img,0,0,w,h);
-
-  // grayscale
-  let data=ctx.getImageData(0,0,w,h); let d=data.data;
-  for(let i=0;i<d.length;i+=4){ const r=d[i],g=d[i+1],b=d[i+2]; const y=0.299*r+0.587*g+0.114*b; d[i]=d[i+1]=d[i+2]=y; }
-  ctx.putImageData(data,0,0);
-
-  // tile-based adaptive threshold for contrast
-  data=ctx.getImageData(0,0,w,h); d=data.data;
-  const tile=32;
+  // grayscale + local contrast
+  const imgData=ctx.getImageData(0,0,w,h); const d=imgData.data;
+  for(let i=0;i<d.length;i+=4){ const r=d[i],g=d[i+1],b=d[i+2]; let y=0.299*r+0.587*g+0.114*b; d[i]=d[i+1]=d[i+2]=y; }
+  ctx.putImageData(imgData,0,0);
+  // simple adaptive threshold (tile-based)
+  const tile=32, data=ctx.getImageData(0,0,w,h); const p=data.data;
   for(let ty=0;ty<h;ty+=tile){
     for(let tx=0;tx<w;tx+=tile){
       let sum=0,cnt=0;
-      for(let y=ty;y<Math.min(ty+tile,h);y+=4){
-        for(let x=tx;x<Math.min(tx+tile,w);x+=4){ sum+=d[(y*w+x)*4]; cnt++; }
+      for(let y=ty;y<Math.min(ty+tile,h);y+=4){ // subsample
+        for(let x=tx;x<Math.min(tx+tile,w);x+=4){ const idx=(y*w+x)*4; sum+=p[idx]; cnt++; }
       }
-      const thr=(sum/cnt)-10;
+      const thresh=(sum/cnt)-10; // slight bias
       for(let y=ty;y<Math.min(ty+tile,h);y++){
         for(let x=tx;x<Math.min(tx+tile,w);x++){
-          const idx=(y*w+x)*4; const v=d[idx]<thr?0:255; d[idx]=d[idx+1]=d[idx+2]=v;
+          const idx=(y*w+x)*4; const v=p[idx]<thresh?0:255; p[idx]=p[idx+1]=p[idx+2]=v;
         }
       }
     }
@@ -338,101 +266,110 @@ async function preprocessImage(file){
 }
 
 async function runOCR(dataUrl,{psm=6}={}){
-  const res=await Tesseract.recognize(
-    dataUrl,'eng',
-    { tessedit_pageseg_mode: psm, preserve_interword_spaces: '1', user_defined_dpi: '300' }
-  );
+  const opts={
+    tessedit_pageseg_mode: psm,                 // 6 = block of text, 3 = auto page
+    preserve_interword_spaces: '1',
+    user_defined_dpi: '300'
+  };
+  const res = await Tesseract.recognize(dataUrl,'eng',{ logger:m=>{}, tessedit_pageseg_mode: psm, ...opts });
   const words=res.data.words||[];
-  const avgConf=words.length?words.reduce((a,w)=>a+(w.conf||0),0)/words.length:(res.data.conf||0);
-  return { words, avgConf, text: res.data.text||'' };
+  const avgConf = words.length ? words.reduce((a,w)=>a+(w.conf||0),0)/words.length : (res.data.conf||0);
+  return { words, avgConf, text: res.data.text || '' , width: res.data?.textlines?.[0]?.baseline?.x1 || null };
 }
 
-function mergeOCRResults(results){
-  const textAll=results.map(r=>r.text||'').join('\n');
-  const mergedWords=[];
-  results.forEach(r=>{ (r.words||[]).forEach(w=>{ if((w.conf||0)>=60) mergedWords.push(w); }); });
-  let parsedFromWords=null;
-  if(mergedWords.length){ parsedFromWords=parseFromWords({words:mergedWords,avgConf:avg(results.map(r=>r.avgConf))}); }
-  return { textAll, parsedFromWords };
-}
-
+// Build ingredients/instructions from word boxes; handles two columns
 function parseFromWords(result){
-  const words=(result.words||[]).filter(w=>(w.conf||0)>=60);
-  if(!words.length) return {name:'',ingredients:'',instructions:''};
+  const words = (result.words||[]).filter(w => (w.conf||0) >= 60); // drop low-confidence junk
+  if (!words.length) return { name:'', ingredients:'', instructions:'' };
 
-  // group into lines by y-center band
+  // Group by lines using y centroid
   const linesMap=new Map();
-  for(const w of words){ const cy=(w.bbox.y0+w.bbox.y1)/2, key=Math.round(cy/18); (linesMap.get(key)||linesMap.set(key,[]).get(key)).push(w); }
+  for(const w of words){
+    const cy=(w.bbox.y0+w.bbox.y1)/2;
+    const key=Math.round(cy/18); // ~18px band
+    if(!linesMap.has(key)) linesMap.set(key,[]);
+    linesMap.get(key).push(w);
+  }
   const lines=[...linesMap.values()].map(ws=>{
     ws.sort((a,b)=>a.bbox.x0-b.bbox.x0);
     const text=ws.map(x=>x.text).join(' ');
-    const xCenter=ws.reduce((s,x)=>s+(x.bbox.x0+x.bbox.x1)/2,0)/ws.length;
-    return {text,xCenter};
-  }).sort((a,b)=>a.xCenter-b.xCenter);
+    const xCenter = ws.reduce((s,x)=>s+(x.bbox.x0+x.bbox.x1)/2,0)/ws.length;
+    return { text, xCenter };
+  }).sort((a,b)=>a.xCenter-b.xCenter); // left to right rough
 
-  // split columns with median x
-  const xs=lines.map(l=>l.xCenter).sort((a,b)=>a-b);
-  const med=xs[Math.floor(xs.length/2)];
-  const left=lines.filter(l=>l.xCenter<=med).map(l=>l.text);
-  const right=lines.filter(l=>l.xCenter> med).map(l=>l.text);
+  // Split into columns by xCenter median
+  const xCenters=lines.map(l=>l.xCenter).sort((a,b)=>a-b);
+  const median=xCenters[Math.floor(xCenters.length/2)];
+  const left=lines.filter(l=>l.xCenter<=median).map(l=>l.text);
+  const right=lines.filter(l=>l.xCenter> median).map(l=>l.text);
 
-  const score = arr => arr.filter(s=>/\b(\d+|\d+\/\d+|½|¼|¾)\b/.test(s)||/\b(cup|tbsp|tsp|g|gram|ml|oz|teaspoon|tablespoon|pinch|kg)\b/i.test(s)).length;
+  // Heuristics: which column looks like ingredients (has quantities/units)
+  const score = (arr)=>arr.filter(s=>/\b(\d+|\d+\/\d+|½|¼|¾)\b/.test(s) || /\b(cup|tbsp|tsp|g|gram|ml|oz|teaspoon|tablespoon|pinch|kg)\b/i.test(s)).length;
   const leftScore=score(left), rightScore=score(right);
-  const ingLines=leftScore>=rightScore?left:right;
-  const other=leftScore>=rightScore?right:left;
+  const ingLines = leftScore>=rightScore ? left : right;
+  const otherLines = leftScore>=rightScore ? right : left;
 
-  const name=(other.find(s=>s && !/\b(cup|tbsp|tsp|g|gram|ml|oz)\b/i.test(s))||'').replace(/^\W+|\W+$/g,'');
+  // Try to find a name as the first non-ingredienty line
+  const name = (otherLines.find(s=>s && !/\b(cup|tbsp|tsp|g|gram|ml|oz)\b/i.test(s)) || '').replace(/^\W+|\W+$/g,'');
 
-  const ingredients=cleanList(ingLines);
-  let instructions=cleanSteps(other);
-  if(!instructions.trim()) instructions=cleanSteps(lines.map(l=>l.text));
+  // Build ingredients
+  const ingredients = cleanList(ingLines);
 
-  return { name, ingredients, instructions };
+  // Instructions: look for step-like lines in other column; else take remainder of both
+  let inst = cleanSteps(otherLines);
+  if (!inst.trim()) inst = cleanSteps(lines.map(l=>l.text)); // fallback
+
+  return { name, ingredients, instructions: inst };
 }
 
 function parsePlainText(text){
   const lines=(text||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   if(!lines.length) return {name:'',ingredients:'',instructions:''};
+  // simple fallback
   let name=lines[0], idxIng=lines.findIndex(l=>/ingredient[s]?\b/i.test(l)), idxIns=lines.findIndex(l=>/instruction[s]?|method|directions/i.test(l));
-  let ing='',ins='';
-  if(idxIng>=0&&idxIns>=0){ ing=lines.slice(idxIng+1,idxIns).join('\n'); ins=lines.slice(idxIns+1).join('\n'); }
-  else{ const stepStart=lines.findIndex(l=>/^\d+[\).]\s+/.test(l)); if(stepStart>=0){ ing=lines.slice(1,stepStart).join('\n'); ins=lines.slice(stepStart).join('\n'); } else { const split=Math.max(1,Math.floor(lines.length/3)); ing=lines.slice(1,split+1).join('\n'); ins=lines.slice(split+1).join('\n'); } }
-  if(!/\b(cup|tbsp|tsp|g|gram|ml|oz|teaspoon|tablespoon|pinch|kg)\b/i.test(ing)){ const il=lines.filter(l=>/\b(\d+|\d+\/\d+|½|¼|¾)\b/.test(l)); if(il.length) ing=il.join('\n'); }
+  let ing='', ins='';
+  if(idxIng>=0 && idxIns>=0){ ing=lines.slice(idxIng+1,idxIns).join('\n'); ins=lines.slice(idxIns+1).join('\n'); }
+  else { const stepStart=lines.findIndex(l=>/^\d+[\).]\s+/.test(l)); if(stepStart>=0){ ing=lines.slice(1,stepStart).join('\n'); ins=lines.slice(stepStart).join('\n'); } else { const split=Math.max(1,Math.floor(lines.length/3)); ing=lines.slice(1,split+1).join('\n'); ins=lines.slice(split+1).join('\n'); } }
+  if(!/\b(cup|tbsp|tsp|g|gram|ml|oz|teaspoon|tablespoon|pinch|kg)\b/i.test(ing)) {
+    const il=lines.filter(l=>/\b(\d+|\d+\/\d+|½|¼|¾)\b/.test(l)); if(il.length) ing=il.join('\n');
+  }
   return { name, ingredients: ing, instructions: ins };
 }
 
-/* ========= helpers ========= */
-function cleanList(arr){ return arr.map(s=>s.replace(/^[•·▪●\-–—]\s*/,'').trim()).filter(s=>s.length>1).join('\n'); }
-function cleanSteps(arr){ const steps=arr.filter(s=>/^\d+[\).]\s+/.test(s)||/\b(mix|stir|bake|heat|add|whisk|pour|preheat|combine|fold|cool|serve)\b/i.test(s)); return steps.map(s=>s.replace(/^\d+[\).]\s*/,'')).join('\n'); }
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
-function previewImage(input,img){ const f=input.files&&input.files[0]; if(!f){img.style.display='none';return} const fr=new FileReader(); fr.onload=e=>{img.src=e.target.result;img.style.display='block'}; fr.readAsDataURL(f); }
-function fileToDataURL(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
-function loadImageFromFile(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file); }); }
-function avg(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; }
-
-/* ========= video OCR ========= */
+/* ====== OCR utils ====== */
+function cleanList(arr){
+  return arr
+    .map(s=>s.replace(/[•·▪●\-–—]\s*/,'').trim())
+    .filter(s=>s && s.length>1)
+    .join('\n');
+}
+function cleanSteps(arr){
+  const steps=arr.filter(s=>/^\d+[\).]\s+/.test(s) || /\b(mix|stir|bake|heat|add|whisk|pour|preheat|combine|fold|cool|serve)\b/i.test(s));
+  return steps.map(s=>s.replace(/^\d+[\).]\s*/,'')).join('\n');
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
+function previewImage(input,img){const f=input.files&&input.files[0]; if(!f){img.style.display='none';return} const fr=new FileReader(); fr.onload=e=>{img.src=e.target.result;img.style.display='block'}; fr.readAsDataURL(f);}
+function fileToDataURL(file){return new Promise((res,rej)=>{const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(file);});}
+function loadImageFromFile(file){return new Promise((res,rej)=>{const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file);});}
 async function ocrVideo(file,setStatus){
-  const MAX=3, url=URL.createObjectURL(file), video=document.getElementById('hiddenVideo'), canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
+  const MAX=3; const url=URL.createObjectURL(file); const video=document.getElementById('hiddenVideo'); const canvas=document.getElementById('canvas'); const ctx=canvas.getContext('2d');
   return new Promise((resolve,reject)=>{
-    const cleanup=()=>{ try{URL.revokeObjectURL(url)}catch{} video.pause(); video.removeAttribute('src'); };
+    const cleanup=()=>{try{URL.revokeObjectURL(url)}catch{} video.pause(); video.removeAttribute('src');};
     video.onloadedmetadata=async()=>{
-      const dur=video.duration||0; if(!dur||!isFinite(dur)){cleanup(); return reject(new Error('Bad video')); }
+      const dur=video.duration||0; if(!dur||!isFinite(dur)){cleanup(); return reject(new Error('Bad video'));}
       const frames=Math.min(MAX,Math.ceil(dur)); const times=Array.from({length:frames},(_,i)=>(i+1)/(frames+1)*dur); let text='';
-      for(let i=0;i<times.length;i++){
-        const t=times[i]; setStatus&&setStatus(`Frame ${i+1}/${frames}…`);
-        await new Promise(r=>{ const onSeek=()=>{video.removeEventListener('seeked',onSeek); r();}; video.addEventListener('seeked',onSeek); video.currentTime=Math.min(Math.max(0,t),Math.max(0,dur-.1)); setTimeout(()=>{video.removeEventListener('seeked',onSeek); r();},3000); });
+      for(let i=0;i<times.length;i++){ const t=times[i]; setStatus&&setStatus(`Frame ${i+1}/${frames}…`); await new Promise(r=>{const onSeek=()=>{video.removeEventListener('seeked',onSeek); r()}; video.addEventListener('seeked',onSeek); video.currentTime=Math.min(Math.max(0,t),Math.max(0,dur-.1)); setTimeout(()=>{video.removeEventListener('seeked',onSeek); r()},3000);});
         canvas.width=Math.min(video.videoWidth,1280); canvas.height=Math.min(video.videoHeight,720); ctx.drawImage(video,0,0,canvas.width,canvas.height);
-        const blob=await new Promise(r=>canvas.toBlob(r,'image/png')); const u2=URL.createObjectURL(blob);
-        const res=await Tesseract.recognize(u2,'eng',{tessedit_pageseg_mode:3}); text+='\n'+(res.data.text||''); URL.revokeObjectURL(u2);
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/png')); const url2=URL.createObjectURL(blob);
+        const res=await Tesseract.recognize(url2,'eng',{tessedit_pageseg_mode:3}); text+='\n'+(res.data.text||''); URL.revokeObjectURL(url2);
       }
       cleanup(); resolve(text);
     };
-    video.onerror=()=>{cleanup(); reject(new Error('Video load error')); };
-    video.src=url; video.preload='metadata'; video.muted=true;
+    video.onerror=()=>{cleanup(); reject(new Error('Video load error'));}; video.src=url; video.preload='metadata'; video.muted=true;
   });
 }
 
-/* ========= boot ========= */
+/* ====== boot ====== */
 render();
   </script>
 </body>
