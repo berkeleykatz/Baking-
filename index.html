@@ -5,51 +5,31 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>My Recipe Collection</title>
 
-  <!-- Tailwind (utility classes only; safe on GitHub Pages) -->
   <script src="https://cdn.tailwindcss.com" defer></script>
-
-  <!-- Tesseract.js for client-side OCR (optional) -->
   <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
 
   <style>
-    :root{
-      --bg1:#ffecd2; --bg2:#fcb69f; --text:#5d4037; --primary:#ff6f61; --secondary:#4caf50;
-      --surface:#ffffff; --chip:#ffe0b2; --chipText:#e65100;
-    }
-    html,body{height:100%}
-    *{box-sizing:border-box}
-    body{
-      margin:0; font-family: Georgia, serif; color:var(--text);
-      background:linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 100%);
-      min-height:100%;
-    }
+    :root{--bg1:#ffecd2;--bg2:#fcb69f;--text:#5d4037;--primary:#ff6f61;--secondary:#4caf50;--surface:#fff;--chip:#ffe0b2;--chipText:#e65100}
+    html,body{height:100%}*{box-sizing:border-box}
+    body{margin:0;font-family:Georgia,serif;color:var(--text);background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%)}
     .container{max-width:1200px;margin:0 auto;padding:2rem}
     .header{text-align:center;margin-bottom:2rem}
     .header h1{font-size:2.5rem;margin:0 0 .5rem;text-shadow:2px 2px 4px rgba(0,0,0,.1)}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border:none;border-radius:999px;
-         padding:.75rem 1.25rem;font-weight:700;cursor:pointer;transition:.2s}
-    .btn-primary{background:var(--primary);color:#fff}
-    .btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
-    .btn-secondary{background:var(--secondary);color:#fff}
-    .btn-secondary:hover{filter:brightness(.95)}
-    .btn-ghost{background:#fff;border:2px solid var(--text);color:var(--text);border-radius:20px;padding:.5rem 1rem}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border:none;border-radius:999px;padding:.75rem 1.25rem;font-weight:700;cursor:pointer;transition:.2s}
+    .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
+    .btn-secondary{background:var(--secondary);color:#fff}.btn-ghost{background:#fff;border:2px solid var(--text);color:var(--text);border-radius:20px;padding:.5rem 1rem}
     .btn-ghost.active,.btn-ghost:hover{background:var(--text);color:#fff}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem}
     .card{background:var(--surface);border-radius:16px;padding:1.25rem;box-shadow:0 4px 8px rgba(0,0,0,.1)}
     .chip{background:var(--chip);color:var(--chipText);padding:.25rem .6rem;border-radius:14px;font-weight:700;font-size:.8rem}
-    .rating{display:flex;gap:.25rem;margin:.5rem 0 1rem}
-    .star{font-size:1.4rem;cursor:pointer;transition:transform .15s}
-    .star:hover{transform:scale(1.2)}
-    .star.filled{color:#ffd700}.star.empty{color:#ddd}
+    .rating{display:flex;gap:.25rem;margin:.5rem 0 1rem}.star{font-size:1.4rem;cursor:pointer}.star.filled{color:#ffd700}.star.empty{color:#ddd}
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:2rem;z-index:50}
-    .modal.active{display:flex}
-    .modal-content{background:#fff;border-radius:16px;padding:1.5rem;max-width:900px;width:100%;max-height:90%;overflow:auto}
-    .form{display:grid;gap:1rem}
-    .form label{font-weight:700;margin-bottom:.35rem;display:block}
+    .modal.active{display:flex}.modal-content{background:#fff;border-radius:16px;padding:1.5rem;max-width:900px;width:100%;max-height:90%;overflow:auto}
+    .form{display:grid;gap:1rem}.form label{font-weight:700;margin-bottom:.35rem;display:block}
     .input,.select,.textarea{width:100%;padding:.75rem;border:2px solid #ddd;border-radius:8px;font:inherit}
     .textarea{min-height:110px;resize:vertical}
     .limit{background:#fff3cd;border:2px solid #ffc107;color:#7a5d00;padding:1rem;border-radius:10px;text-align:center;font-weight:700;margin:1rem 0}
-    .thumb{max-width:150px;max-height:100px;border-radius:8px;display:block;margin-top:.5rem;object-fit:cover}
+    .thumb{max-width:160px;max-height:120px;border-radius:8px;display:block;margin-top:.5rem;object-fit:cover;border:1px solid #e5e7eb}
   </style>
 </head>
 <body>
@@ -121,6 +101,7 @@
             <button id="scanBtn" type="button" class="btn btn-secondary">Scan Photo</button>
             <span id="scanProgress" class="text-sm"></span>
           </div>
+          <div class="text-xs text-gray-600 mt-1">Tip: crop screenshots to only the recipe text for best accuracy.</div>
         </div>
 
         <!-- OCR from video -->
@@ -148,358 +129,247 @@
     </div>
   </div>
 
-  <!-- Hidden elements for video OCR -->
+  <!-- Hidden elements for OCR -->
   <video id="hiddenVideo" style="display:none"></video>
   <canvas id="canvas" style="display:none"></canvas>
 
   <script>
-/* ========= DIAGNOSTICS (at top of script) ========= */
-(function () {
-  // Check localStorage availability
-  let storageOK = true, storageErr = null;
-  try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); }
-  catch (e) { storageOK = false; storageErr = e; }
-  console.log("[diag] storageOK =", storageOK);
-  if (!storageOK) {
-    alert("Your browser is blocking storage (localStorage). Try a regular window (not private) or allow storage.");
-    console.warn("localStorage blocked:", storageErr);
-  }
-  // Simple hooks used later
-  window.__diag = {
-    beforeSave(formData) { console.log("[diag] beforeSave", formData); },
-    afterSave(recipes) { console.log("[diag] afterSave; recipes length:", recipes.length); },
-    afterRender(visible) { console.log("[diag] afterRender; visible:", visible.length); }
-  };
-})();
+/* ====== storage + state ====== */
+const KEY='recipes_v1';
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||[]}catch{return[]}};
+const save=a=>localStorage.setItem(KEY,JSON.stringify(a));
+let recipes=load(), filter='all', editingId=null;
 
-/* ========= DATA STORE (localStorage) ========= */
-const STORE_KEY = 'recipes_v1';
-const load = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } };
-const save = (arr) => localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+/* ====== elements ====== */
+const $=s=>document.querySelector(s);
+const grid=$('#grid'), limit=$('#limit'), modal=$('#modal'), form=$('#form'), modalTitle=$('#modalTitle');
+const nameEl=$('#name'), catEl=$('#cat'), ingEl=$('#ingredients'), instEl=$('#instructions');
+const photoEl=$('#photo'), photoPreview=$('#photoPreview'), scanBtn=$('#scanBtn'), scanProgress=$('#scanProgress');
+const videoEl=$('#video'), analyzeBtn=$('#analyzeBtn'), analyzeProgress=$('#analyzeProgress');
+const finishedEl=$('#finished'), finishedPreview=$('#finishedPreview');
 
-/* ========= STATE & ELEMENTS ========= */
-let recipes = load();        // array of recipe objects
-let filter = 'all';          // current category filter
-let editingId = null;        // id of recipe being edited
-
-const $ = (sel) => document.querySelector(sel);
-const grid = $('#grid');
-const limit = $('#limit');
-const modal = $('#modal');
-const form = $('#form');
-const modalTitle = $('#modalTitle');
-const nameEl = $('#name');
-const catEl = $('#cat');
-const ingEl = $('#ingredients');
-const instEl = $('#instructions');
-const finishedEl = $('#finished');
-const finishedPreview = $('#finishedPreview');
-const photoEl = $('#photo');
-const photoPreview = $('#photoPreview');
-const scanBtn = $('#scanBtn');
-const scanProgress = $('#scanProgress');
-const videoEl = $('#video');
-const analyzeBtn = $('#analyzeBtn');
-const analyzeProgress = $('#analyzeProgress');
-
-/* ========= EVENT WIRING ========= */
-$('#addBtn').addEventListener('click', () => openAdd());
-$('#closeModal').addEventListener('click', closeModal);
-$('#cancelBtn').addEventListener('click', closeModal);
-document.querySelectorAll('[data-filter]').forEach(b => {
-  b.addEventListener('click', (e) => {
-    document.querySelectorAll('[data-filter]').forEach(x => x.classList.remove('active'));
-    e.currentTarget.classList.add('active');
-    filter = e.currentTarget.getAttribute('data-filter');
-    render();
+/* ====== events ====== */
+$('#addBtn').addEventListener('click',openAdd);
+$('#closeModal').addEventListener('click',closeModal);
+$('#cancelBtn').addEventListener('click',closeModal);
+document.querySelectorAll('[data-filter]').forEach(b=>{
+  b.addEventListener('click',e=>{
+    document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));
+    e.currentTarget.classList.add('active'); filter=e.currentTarget.dataset.filter; render();
   });
 });
+photoEl.addEventListener('change',()=>previewImage(photoEl,photoPreview));
+finishedEl.addEventListener('change',()=>previewImage(finishedEl,finishedPreview));
 
-photoEl.addEventListener('change', () => previewImage(photoEl, photoPreview));
-finishedEl.addEventListener('change', () => previewImage(finishedEl, finishedPreview));
-
-scanBtn.addEventListener('click', async () => {
-  const f = photoEl.files && photoEl.files[0];
-  if (!f) return alert('Choose a recipe photo first.');
-  scanProgress.textContent = 'Scanning...';
-  try {
-    const text = await ocrFile(f, p => { scanProgress.textContent = `Scanning ${Math.round(p*100)}%`; });
-    const parsed = parseText(text);
-    if (parsed.name) nameEl.value = parsed.name;
-    if (parsed.ingredients) ingEl.value = parsed.ingredients;
-    if (parsed.instructions) instEl.value = parsed.instructions;
-    scanProgress.textContent = 'Done.';
-  } catch (e) {
-    console.error(e);
-    scanProgress.textContent = 'Failed to scan.';
-    alert('OCR failed. Try a clearer photo.');
-  } finally {
-    setTimeout(() => scanProgress.textContent = '', 1200);
-  }
+scanBtn.addEventListener('click',async()=>{
+  const file=photoEl.files&&photoEl.files[0]; if(!file) return alert('Choose a recipe photo first.');
+  scanProgress.textContent='Preprocessing...';
+  try{
+    const pre=await preprocessImage(file); // canvas processed dataURL
+    scanProgress.textContent='Scanning (mode A)...';
+    const a=await runOCR(pre,{ psm:6 });   // assume single uniform block of text
+    scanProgress.textContent='Scanning (mode B)...';
+    const b=await runOCR(pre,{ psm:3 });   // fully automatic page segmentation
+    const best=(a.avgConf>=b.avgConf)?a:b;
+    const parsed=parseFromWords(best);     // smarter parser with columns
+    if(parsed.name) nameEl.value=parsed.name;
+    if(parsed.ingredients) ingEl.value=parsed.ingredients;
+    if(parsed.instructions) instEl.value=parsed.instructions;
+    scanProgress.textContent=`Done (confidence ${Math.round(best.avgConf)}).`;
+  }catch(err){
+    console.error(err); alert('Scan failed. Try cropping to the recipe text or a clearer photo.');
+    scanProgress.textContent='Failed';
+  }finally{ setTimeout(()=>scanProgress.textContent='',1500); }
 });
 
-analyzeBtn.addEventListener('click', async () => {
-  const f = videoEl.files && videoEl.files[0];
-  if (!f) return alert('Choose a video first.');
-  try {
-    analyzeProgress.textContent = 'Preparing video...';
-    const text = await ocrVideo(f, (s) => analyzeProgress.textContent = s);
-    const parsed = parseText(text);
-    if (parsed.name) nameEl.value = parsed.name;
-    if (parsed.ingredients) ingEl.value = parsed.ingredients;
-    if (parsed.instructions) instEl.value = parsed.instructions;
-    analyzeProgress.textContent = 'Done.';
-  } catch (e) {
-    console.error(e);
-    analyzeProgress.textContent = 'Failed to analyze.';
-  } finally {
-    setTimeout(() => analyzeProgress.textContent = '', 1200);
-  }
+analyzeBtn.addEventListener('click',async()=>{
+  const f=videoEl.files&&videoEl.files[0]; if(!f) return alert('Choose a video first.');
+  analyzeProgress.textContent='Preparing video...';
+  try{
+    const text=await ocrVideo(f,(s)=>analyzeProgress.textContent=s);
+    const parsed=parsePlainText(text);
+    if(parsed.name) nameEl.value=parsed.name;
+    if(parsed.ingredients) ingEl.value=parsed.ingredients;
+    if(parsed.instructions) instEl.value=parsed.instructions;
+    analyzeProgress.textContent='Done.';
+  }catch(e){ console.error(e); analyzeProgress.textContent='Failed'; }
+  finally{ setTimeout(()=>analyzeProgress.textContent='',1200); }
 });
 
-form.addEventListener('submit', async (e) => {
+form.addEventListener('submit',async(e)=>{
   e.preventDefault();
-  $('#saveBtn').disabled = true;
-  $('#saveBtn').textContent = 'Saving...';
-
-  const rec = {
-    name: nameEl.value.trim(),
-    category: catEl.value,
-    ingredients: ingEl.value.trim(),
-    instructions: instEl.value.trim(),
-    rating: 0,
-    createdAt: new Date().toISOString(),
-  };
-  window.__diag && window.__diag.beforeSave(rec);
-
-  // read images to data URLs so they persist
-  if (finishedEl.files && finishedEl.files[0]) {
-    rec.finishedPhoto = await fileToDataURL(finishedEl.files[0]).catch(()=>null);
-  }
-  if (photoEl.files && photoEl.files[0]) {
-    rec.sourcePhoto = await fileToDataURL(photoEl.files[0]).catch(()=>null);
-  }
-
-  if (editingId) {
-    const i = recipes.findIndex(r => r.__id === editingId);
-    if (i >= 0) recipes[i] = { ...recipes[i], ...rec };
-    editingId = null;
-  } else {
-    if (recipes.length >= 999) {
-      alert('Maximum 999 recipes reached.');
-      $('#saveBtn').disabled = false; $('#saveBtn').textContent = 'Save Recipe'; return;
-    }
-    rec.__id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-    recipes.push(rec);
-  }
-  save(recipes);
-  window.__diag && window.__diag.afterSave(recipes);
-
-  closeModal();
-  render();
-
-  $('#saveBtn').disabled = false;
-  $('#saveBtn').textContent = 'Save Recipe';
+  $('#saveBtn').disabled=true; $('#saveBtn').textContent='Saving...';
+  const rec={ name:nameEl.value.trim(), category:catEl.value, ingredients:ingEl.value.trim(), instructions:instEl.value.trim(), rating:0, createdAt:new Date().toISOString() };
+  if(finishedEl.files&&finishedEl.files[0]) rec.finishedPhoto=await fileToDataURL(finishedEl.files[0]).catch(()=>null);
+  if(photoEl.files&&photoEl.files[0]) rec.sourcePhoto=await fileToDataURL(photoEl.files[0]).catch(()=>null);
+  if(editingId){ const i=recipes.findIndex(r=>r.__id===editingId); if(i>=0) recipes[i]={...recipes[i],...rec}; editingId=null; }
+  else{ if(recipes.length>=999){ alert('Maximum 999 recipes reached.'); $('#saveBtn').disabled=false; $('#saveBtn').textContent='Save Recipe'; return; }
+        rec.__id=crypto.randomUUID?crypto.randomUUID():String(Date.now()); recipes.push(rec); }
+  save(recipes); closeModal(); render(); $('#saveBtn').disabled=false; $('#saveBtn').textContent='Save Recipe';
 });
 
-/* ========= UI FUNCTIONS ========= */
-function openAdd(){
-  editingId = null;
-  modalTitle.textContent = 'Add New Recipe';
-  form.reset();
-  photoPreview.style.display = 'none';
-  finishedPreview.style.display = 'none';
-  modal.classList.add('active');
-}
-function openEdit(recipe){
-  editingId = recipe.__id;
-  modalTitle.textContent = 'Edit Recipe';
-  nameEl.value = recipe.name || '';
-  catEl.value = recipe.category || '';
-  ingEl.value = recipe.ingredients || '';
-  instEl.value = recipe.instructions || '';
-  if (recipe.finishedPhoto){ finishedPreview.src = recipe.finishedPhoto; finishedPreview.style.display='block'; }
-  else finishedPreview.style.display='none';
-  modal.classList.add('active');
-}
+/* ====== UI ====== */
+function openAdd(){ editingId=null; modalTitle.textContent='Add New Recipe'; form.reset(); photoPreview.style.display='none'; finishedPreview.style.display='none'; modal.classList.add('active'); }
+function openEdit(r){ editingId=r.__id; modalTitle.textContent='Edit Recipe'; nameEl.value=r.name||''; catEl.value=r.category||''; ingEl.value=r.ingredients||''; instEl.value=r.instructions||''; if(r.finishedPhoto){finishedPreview.src=r.finishedPhoto;finishedPreview.style.display='block'} else finishedPreview.style.display='none'; modal.classList.add('active'); }
 function closeModal(){ modal.classList.remove('active'); }
-
 function render(){
-  limit.style.display = recipes.length >= 999 ? 'block' : 'none';
-
-  const visible = (filter === 'all') ? recipes : recipes.filter(r => r.category === filter);
-  if (!visible.length){
-    grid.innerHTML = `
-      <div class="card text-center">
-        <h2 class="text-xl m-0">No recipes yet!</h2>
-        <p>Click “Add New Recipe” to get started 🍰</p>
-      </div>`;
-    window.__diag && window.__diag.afterRender([]);
-    return;
-  }
-  grid.innerHTML = '';
-  visible.forEach(r => grid.appendChild(recipeCard(r)));
-  window.__diag && window.__diag.afterRender(visible);
+  limit.style.display=recipes.length>=999?'block':'none';
+  const list=(filter==='all')?recipes:recipes.filter(r=>r.category===filter);
+  if(!list.length){ grid.innerHTML=`<div class="card text-center"><h2 class="text-xl m-0">No recipes yet!</h2><p>Click “Add New Recipe” to get started 🍰</p></div>`; return; }
+  grid.innerHTML=''; list.forEach(r=>grid.appendChild(card(r)));
+}
+function card(r){
+  const el=document.createElement('div'); el.className='card';
+  const photo=r.finishedPhoto?`<div class="text-center mb-3"><img src="${r.finishedPhoto}" alt="" style="max-width:100%;border-radius:10px;object-fit:cover"></div>`:'';
+  el.innerHTML=`
+    ${photo}
+    <div class="flex items-start justify-between mb-2"><h3 class="m-0 text-lg" style="color:var(--text)">${esc(r.name)}</h3><span class="chip">${esc(r.category||'')}</span></div>
+    <div class="rating" data-id="${r.__id}">${[1,2,3,4,5].map(n=>`<span class="star ${n<=(r.rating||0)?'filled':'empty'}" data-rating="${n}">★</span>`).join('')}</div>
+    <div class="mb-2"><h4 class="m-0 text-sm">Ingredients</h4><p class="m-0 whitespace-pre-line">${esc(r.ingredients||'')}</p></div>
+    <div><h4 class="m-0 text-sm">Instructions</h4><p class="m-0 whitespace-pre-line">${esc(r.instructions||'')}</p></div>
+    <div class="grid grid-cols-2 gap-2 mt-3"><button class="btn btn-secondary edit">Edit</button><button class="btn btn-primary delete" style="background:#f44336">Delete</button></div>`;
+  el.querySelector('.rating').addEventListener('click',e=>{ if(!e.target.classList.contains('star'))return; const rate=+e.target.dataset.rating; const i=recipes.findIndex(x=>x.__id===r.__id); if(i>=0){recipes[i].rating=rate; save(recipes); render();}});
+  el.querySelector('.edit').addEventListener('click',()=>openEdit(r));
+  el.querySelector('.delete').addEventListener('click',()=>{ if(!confirm(`Delete "${r.name}"?`))return; recipes=recipes.filter(x=>x.__id!==r.__id); save(recipes); render(); });
+  return el;
 }
 
-function recipeCard(r){
-  const card = document.createElement('div');
-  card.className = 'card';
-
-  const photoTop = r.finishedPhoto
-    ? `<div class="text-center mb-3"><img src="${r.finishedPhoto}" alt="Finished photo" style="max-width:100%;border-radius:10px;object-fit:cover"></div>`
-    : '';
-
-  card.innerHTML = `
-    ${photoTop}
-    <div class="flex items-start justify-between mb-2">
-      <h3 class="m-0 text-lg" style="color:var(--text)">${esc(r.name)}</h3>
-      <span class="chip">${esc(r.category || '')}</span>
-    </div>
-
-    <div class="rating" data-id="${r.__id}">
-      ${[1,2,3,4,5].map(n => `<span class="star ${n<= (r.rating||0) ? 'filled':'empty'}" data-rating="${n}">★</span>`).join('')}
-    </div>
-
-    <div class="mb-2">
-      <h4 class="m-0 text-sm">Ingredients</h4>
-      <p class="m-0 whitespace-pre-line">${esc(r.ingredients || '')}</p>
-    </div>
-    <div>
-      <h4 class="m-0 text-sm">Instructions</h4>
-      <p class="m-0 whitespace-pre-line">${esc(r.instructions || '')}</p>
-    </div>
-
-    <div class="grid grid-cols-2 gap-2 mt-3">
-      <button class="btn btn-secondary edit">Edit</button>
-      <button class="btn btn-primary delete" style="background:#f44336">Delete</button>
-    </div>
-  `;
-
-  // Rating
-  card.querySelector('.rating').addEventListener('click', (e) => {
-    if (!e.target.classList.contains('star')) return;
-    const rating = parseInt(e.target.getAttribute('data-rating'), 10);
-    const i = recipes.findIndex(x => x.__id === r.__id);
-    if (i >= 0){ recipes[i].rating = rating; save(recipes); render(); }
-  });
-
-  // Edit / Delete
-  card.querySelector('.edit').addEventListener('click', () => openEdit(r));
-  card.querySelector('.delete').addEventListener('click', () => confirmDelete(r));
-
-  return card;
-}
-
-function confirmDelete(r){
-  if (!confirm(`Delete "${r.name}"?`)) return;
-  recipes = recipes.filter(x => x.__id !== r.__id);
-  save(recipes);
-  render();
-}
-
-/* ========= OCR HELPERS ========= */
-async function fileToDataURL(file){
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = e => res(e.target.result);
-    fr.onerror = rej;
-    fr.readAsDataURL(file);
-  });
-}
-function previewImage(input, imgEl){
-  const f = input.files && input.files[0];
-  if (!f){ imgEl.style.display='none'; return; }
-  const fr = new FileReader();
-  fr.onload = e => { imgEl.src = e.target.result; imgEl.style.display='block'; };
-  fr.readAsDataURL(f);
-}
-async function ocrFile(file, onProgress){
-  const dataUrl = await fileToDataURL(file);
-  return new Promise((resolve, reject) => {
-    Tesseract.recognize(dataUrl, 'eng', { logger: m => { if (onProgress && m.progress) onProgress(m.progress); } })
-      .then(({ data:{ text } }) => resolve(text))
-      .catch(reject);
-  });
-}
-function parseText(text){
-  const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (!lines.length) return { name:'', ingredients:'', instructions:'' };
-  let name = lines[0];
-  const idxIng = lines.findIndex(l => /ingredient[s]?\b/i.test(l));
-  const idxIns = lines.findIndex(l => /instruction[s]?\b|method\b|directions\b/i.test(l));
-  let ingredients='', instructions='';
-  if (idxIng >= 0 && idxIns >= 0){
-    ingredients = lines.slice(idxIng+1, idxIns).join('\n');
-    instructions = lines.slice(idxIns+1).join('\n');
-  } else if (idxIns >= 0){
-    ingredients = lines.slice(1, idxIns).join('\n');
-    instructions = lines.slice(idxIns+1).join('\n');
-  } else {
-    const stepStart = lines.findIndex(l => /^\d+[\).]/.test(l));
-    if (stepStart >= 0){
-      ingredients = lines.slice(1, stepStart).join('\n');
-      instructions = lines.slice(stepStart).join('\n');
-    } else {
-      const split = Math.max(1, Math.floor(lines.length/3));
-      ingredients = lines.slice(1, split+1).join('\n');
-      instructions = lines.slice(split+1).join('\n');
+/* ====== OCR: preprocessing + robust parsing ====== */
+// Draws to canvas, upscales, grayscale, contrast stretch, adaptive threshold
+async function preprocessImage(file){
+  const img=await loadImageFromFile(file);
+  const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
+  const targetW=Math.max(1400, img.width); const scale=targetW/img.width; const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+  canvas.width=w; canvas.height=h; ctx.drawImage(img,0,0,w,h);
+  // grayscale + local contrast
+  const imgData=ctx.getImageData(0,0,w,h); const d=imgData.data;
+  for(let i=0;i<d.length;i+=4){ const r=d[i],g=d[i+1],b=d[i+2]; let y=0.299*r+0.587*g+0.114*b; d[i]=d[i+1]=d[i+2]=y; }
+  ctx.putImageData(imgData,0,0);
+  // simple adaptive threshold (tile-based)
+  const tile=32, data=ctx.getImageData(0,0,w,h); const p=data.data;
+  for(let ty=0;ty<h;ty+=tile){
+    for(let tx=0;tx<w;tx+=tile){
+      let sum=0,cnt=0;
+      for(let y=ty;y<Math.min(ty+tile,h);y+=4){ // subsample
+        for(let x=tx;x<Math.min(tx+tile,w);x+=4){ const idx=(y*w+x)*4; sum+=p[idx]; cnt++; }
+      }
+      const thresh=(sum/cnt)-10; // slight bias
+      for(let y=ty;y<Math.min(ty+tile,h);y++){
+        for(let x=tx;x<Math.min(tx+tile,w);x++){
+          const idx=(y*w+x)*4; const v=p[idx]<thresh?0:255; p[idx]=p[idx+1]=p[idx+2]=v;
+        }
+      }
     }
   }
-  if (!ingredients.trim()){
-    const ingLines = lines.filter(l => /cup|tbsp|tsp|g\b|grams|oz|ml|pinch|kg|tablespoon|teaspoon/i.test(l));
-    if (ingLines.length) ingredients = ingLines.join('\n');
+  ctx.putImageData(data,0,0);
+  return canvas.toDataURL('image/png');
+}
+
+async function runOCR(dataUrl,{psm=6}={}){
+  const opts={
+    tessedit_pageseg_mode: psm,                 // 6 = block of text, 3 = auto page
+    preserve_interword_spaces: '1',
+    user_defined_dpi: '300'
+  };
+  const res = await Tesseract.recognize(dataUrl,'eng',{ logger:m=>{}, tessedit_pageseg_mode: psm, ...opts });
+  const words=res.data.words||[];
+  const avgConf = words.length ? words.reduce((a,w)=>a+(w.conf||0),0)/words.length : (res.data.conf||0);
+  return { words, avgConf, text: res.data.text || '' , width: res.data?.textlines?.[0]?.baseline?.x1 || null };
+}
+
+// Build ingredients/instructions from word boxes; handles two columns
+function parseFromWords(result){
+  const words = (result.words||[]).filter(w => (w.conf||0) >= 60); // drop low-confidence junk
+  if (!words.length) return { name:'', ingredients:'', instructions:'' };
+
+  // Group by lines using y centroid
+  const linesMap=new Map();
+  for(const w of words){
+    const cy=(w.bbox.y0+w.bbox.y1)/2;
+    const key=Math.round(cy/18); // ~18px band
+    if(!linesMap.has(key)) linesMap.set(key,[]);
+    linesMap.get(key).push(w);
   }
-  return { name, ingredients, instructions };
+  const lines=[...linesMap.values()].map(ws=>{
+    ws.sort((a,b)=>a.bbox.x0-b.bbox.x0);
+    const text=ws.map(x=>x.text).join(' ');
+    const xCenter = ws.reduce((s,x)=>s+(x.bbox.x0+x.bbox.x1)/2,0)/ws.length;
+    return { text, xCenter };
+  }).sort((a,b)=>a.xCenter-b.xCenter); // left to right rough
+
+  // Split into columns by xCenter median
+  const xCenters=lines.map(l=>l.xCenter).sort((a,b)=>a-b);
+  const median=xCenters[Math.floor(xCenters.length/2)];
+  const left=lines.filter(l=>l.xCenter<=median).map(l=>l.text);
+  const right=lines.filter(l=>l.xCenter> median).map(l=>l.text);
+
+  // Heuristics: which column looks like ingredients (has quantities/units)
+  const score = (arr)=>arr.filter(s=>/\b(\d+|\d+\/\d+|½|¼|¾)\b/.test(s) || /\b(cup|tbsp|tsp|g|gram|ml|oz|teaspoon|tablespoon|pinch|kg)\b/i.test(s)).length;
+  const leftScore=score(left), rightScore=score(right);
+  const ingLines = leftScore>=rightScore ? left : right;
+  const otherLines = leftScore>=rightScore ? right : left;
+
+  // Try to find a name as the first non-ingredienty line
+  const name = (otherLines.find(s=>s && !/\b(cup|tbsp|tsp|g|gram|ml|oz)\b/i.test(s)) || '').replace(/^\W+|\W+$/g,'');
+
+  // Build ingredients
+  const ingredients = cleanList(ingLines);
+
+  // Instructions: look for step-like lines in other column; else take remainder of both
+  let inst = cleanSteps(otherLines);
+  if (!inst.trim()) inst = cleanSteps(lines.map(l=>l.text)); // fallback
+
+  return { name, ingredients, instructions: inst };
 }
-async function ocrVideo(file, setStatus){
-  const MAX = 3;
-  const url = URL.createObjectURL(file);
-  const video = document.getElementById('hiddenVideo');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  return new Promise((resolve, reject) => {
-    const cleanup = () => { try{URL.revokeObjectURL(url);}catch{} video.pause(); video.removeAttribute('src'); };
-    video.onloadedmetadata = async () => {
-      const dur = video.duration || 0;
-      if (!dur || !isFinite(dur)){ cleanup(); return reject(new Error('Bad video')); }
-      const frames = Math.min(MAX, Math.ceil(dur));
-      const times = Array.from({length:frames}, (_,i)=> (i+1)/(frames+1)*dur);
-      let text = '';
-      for (let i=0;i<times.length;i++){
-        const t = times[i];
-        setStatus && setStatus(`Frame ${i+1}/${frames}…`);
-        await seek(video, t);
-        canvas.width = Math.min(video.videoWidth, 1280);
-        canvas.height = Math.min(video.videoHeight, 720);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-        try{ const part = await ocrFile(blob); text += '\n' + part; }catch(e){ console.warn('frame OCR failed', e); }
+
+function parsePlainText(text){
+  const lines=(text||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!lines.length) return {name:'',ingredients:'',instructions:''};
+  // simple fallback
+  let name=lines[0], idxIng=lines.findIndex(l=>/ingredient[s]?\b/i.test(l)), idxIns=lines.findIndex(l=>/instruction[s]?|method|directions/i.test(l));
+  let ing='', ins='';
+  if(idxIng>=0 && idxIns>=0){ ing=lines.slice(idxIng+1,idxIns).join('\n'); ins=lines.slice(idxIns+1).join('\n'); }
+  else { const stepStart=lines.findIndex(l=>/^\d+[\).]\s+/.test(l)); if(stepStart>=0){ ing=lines.slice(1,stepStart).join('\n'); ins=lines.slice(stepStart).join('\n'); } else { const split=Math.max(1,Math.floor(lines.length/3)); ing=lines.slice(1,split+1).join('\n'); ins=lines.slice(split+1).join('\n'); } }
+  if(!/\b(cup|tbsp|tsp|g|gram|ml|oz|teaspoon|tablespoon|pinch|kg)\b/i.test(ing)) {
+    const il=lines.filter(l=>/\b(\d+|\d+\/\d+|½|¼|¾)\b/.test(l)); if(il.length) ing=il.join('\n');
+  }
+  return { name, ingredients: ing, instructions: ins };
+}
+
+/* ====== OCR utils ====== */
+function cleanList(arr){
+  return arr
+    .map(s=>s.replace(/[•·▪●\-–—]\s*/,'').trim())
+    .filter(s=>s && s.length>1)
+    .join('\n');
+}
+function cleanSteps(arr){
+  const steps=arr.filter(s=>/^\d+[\).]\s+/.test(s) || /\b(mix|stir|bake|heat|add|whisk|pour|preheat|combine|fold|cool|serve)\b/i.test(s));
+  return steps.map(s=>s.replace(/^\d+[\).]\s*/,'')).join('\n');
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
+function previewImage(input,img){const f=input.files&&input.files[0]; if(!f){img.style.display='none';return} const fr=new FileReader(); fr.onload=e=>{img.src=e.target.result;img.style.display='block'}; fr.readAsDataURL(f);}
+function fileToDataURL(file){return new Promise((res,rej)=>{const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(file);});}
+function loadImageFromFile(file){return new Promise((res,rej)=>{const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file);});}
+async function ocrVideo(file,setStatus){
+  const MAX=3; const url=URL.createObjectURL(file); const video=document.getElementById('hiddenVideo'); const canvas=document.getElementById('canvas'); const ctx=canvas.getContext('2d');
+  return new Promise((resolve,reject)=>{
+    const cleanup=()=>{try{URL.revokeObjectURL(url)}catch{} video.pause(); video.removeAttribute('src');};
+    video.onloadedmetadata=async()=>{
+      const dur=video.duration||0; if(!dur||!isFinite(dur)){cleanup(); return reject(new Error('Bad video'));}
+      const frames=Math.min(MAX,Math.ceil(dur)); const times=Array.from({length:frames},(_,i)=>(i+1)/(frames+1)*dur); let text='';
+      for(let i=0;i<times.length;i++){ const t=times[i]; setStatus&&setStatus(`Frame ${i+1}/${frames}…`); await new Promise(r=>{const onSeek=()=>{video.removeEventListener('seeked',onSeek); r()}; video.addEventListener('seeked',onSeek); video.currentTime=Math.min(Math.max(0,t),Math.max(0,dur-.1)); setTimeout(()=>{video.removeEventListener('seeked',onSeek); r()},3000);});
+        canvas.width=Math.min(video.videoWidth,1280); canvas.height=Math.min(video.videoHeight,720); ctx.drawImage(video,0,0,canvas.width,canvas.height);
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/png')); const url2=URL.createObjectURL(blob);
+        const res=await Tesseract.recognize(url2,'eng',{tessedit_pageseg_mode:3}); text+='\n'+(res.data.text||''); URL.revokeObjectURL(url2);
       }
-      cleanup();
-      resolve(text);
+      cleanup(); resolve(text);
     };
-    video.onerror = () => { cleanup(); reject(new Error('Video load error')); };
-    video.src = url;
-    video.preload = 'metadata';
-    video.muted = true;
-  });
-}
-function seek(video, t){
-  return new Promise((res) => {
-    const onSeeked = () => { video.removeEventListener('seeked', onSeeked); res(); };
-    video.addEventListener('seeked', onSeeked);
-    video.currentTime = Math.min(Math.max(0,t), Math.max(0, (video.duration||0) - .1));
-    setTimeout(() => { video.removeEventListener('seeked', onSeeked); res(); }, 3000); // fallback
+    video.onerror=()=>{cleanup(); reject(new Error('Video load error'));}; video.src=url; video.preload='metadata'; video.muted=true;
   });
 }
 
-/* ========= UTILS ========= */
-function esc(s){ return String(s||'')
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-  .replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
-
-/* ========= BOOT ========= */
+/* ====== boot ====== */
 render();
   </script>
 </body>
