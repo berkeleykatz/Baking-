@@ -407,10 +407,20 @@
       color: #5d4037;
     }
 
+    .detected-list {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+    }
+
   </style>
   <style>@view-transition { navigation: auto; }</style>
   <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
-  <!-- Tesseract.js for client-side OCR -->
+
+  <!-- TensorFlow.js and coco-ssd for object detection (on-device) -->
+  <script src="https://unpkg.com/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://unpkg.com/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
+  <!-- Tesseract.js for client-side OCR (worker) -->
   <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
  </head>
  <body>
@@ -423,21 +433,21 @@
     Maximum limit of 999 recipes reached. Please delete some recipes to add new ones.
    </div>
    <div class="controls"><button class="add-btn" id="add-recipe-btn"> <span id="add-button-text">➕ Add New Recipe</span> </button>
-    <div class="filter-group"><button class="filter-btn active" data-category="all">All</button> <button class="filter-btn" data-category="Cakes">🎂 Cakes</button> <button class="filter-btn" data-category="Cookies">🍪 Cookies</button> <button class="filter-btn" data-category="Pies">🥧 Pies</button> <button class="filter-btn" data-category="Bread">🍞 Bread</button> <button class="filter-btn" data-category="Other">Other</button>
-    </div>
+    <div class="filter-group"><button class="filter-btn active" data-category="all">All</button> <button class="filter-btn" data-category="Cakes">🎂 Cakes</button> <button class="filter-btn" data-category="Cookies">🍪 Cookies</button> <button class="filter-btn" data-category="Bread">🍞 Bread</button> <button class="filter-btn" data-category="Pies">🥧 Pies</button></div>
    </div>
+   <div id="models-loading" style="color:#5d4037; font-size:0.95rem; margin-bottom:1rem;">Loading recognition models...</div>
    <div id="recipe-grid" class="recipe-grid"></div>
   </div>
-  <div id="recipe-modal" class="modal">
+  <div id="recipe-modal" class="modal" aria-hidden="true">
    <div class="modal-content">
     <div class="modal-header">
-     <h2 id="modal-title">Add New Recipe</h2><button class="close-btn" id="close-modal">×</button>
+     <h2 id="modal-title">Add New Recipe</h2><button class="close-btn" id="close-modal" aria-label="Close">×</button>
     </div>
     <form id="recipe-form">
      <div class="form-group"><label for="recipe-name">Recipe Name</label> <input type="text" id="recipe-name" required placeholder="e.g., Chocolate Chip Cookies">
      </div>
 
-     <div class="form-group"><label for="recipe-category">Category</label> <select id="recipe-category" required> <option value="">Select a category</option> <option value="Cakes">Cakes</option> <option value="Cookies">Cookies</option> <option value="Pies">Pies</option> <option value="Bread">Bread</option> <option value="Other">Other</option> </select>
+     <div class="form-group"><label for="recipe-category">Category</label> <select id="recipe-category" required> <option value="">Select a category</option> <option value="Cakes">Cakes</option> <option value="Cookies">Cookies</option> <option value="Bread">Bread</option> <option value="Pies">Pies</option> <option value="Other">Other</option></select>
      </div>
 
      <div class="form-group"><label for="recipe-ingredients">Ingredients</label> <textarea id="recipe-ingredients" required placeholder="List your ingredients, one per line"></textarea>
@@ -454,6 +464,7 @@
        <div>
          <button type="button" id="scan-photo-btn" class="small-btn">Scan Photo</button>
          <span id="scan-photo-progress" class="progress" style="display:none"></span>
+         <div id="scan-photo-detections" class="detected-list" style="display:none"></div>
        </div>
      </div>
 
@@ -464,6 +475,7 @@
        <div>
          <button type="button" id="analyze-video-btn" class="small-btn">Analyze Video</button>
          <span id="analyze-video-progress" class="progress" style="display:none"></span>
+         <div id="analyze-video-detections" class="detected-list" style="display:none"></div>
        </div>
      </div>
 
@@ -485,6 +497,7 @@
   <canvas id="video-canvas" style="display:none"></canvas>
 
   <script>
+    // ---- Configuration and global state ----
     const defaultConfig = {
       app_title: "My Recipe Collection",
       add_button_text: "➕ Add New Recipe",
@@ -501,6 +514,11 @@
     let currentFilter = 'all';
     let editingRecipeId = null;
 
+    // ML models and workers
+    let tesseractWorker = null;
+    let cocoModel = null;
+    let modelsLoaded = false;
+
     const dataHandler = {
       onDataChanged(data) {
         recipes = data;
@@ -509,6 +527,7 @@
       }
     };
 
+    // ---- Initialization ----
     async function initializeApp() {
       if (window.dataSdk) {
         const initResult = await window.dataSdk.init(dataHandler);
@@ -624,8 +643,47 @@
       }
 
       setupEventListeners();
+      // start loading models (in background)
+      loadRecognitionModels().catch(err => {
+        console.warn('Model load failed:', err);
+        document.getElementById('models-loading').textContent = 'Model loading failed (see console). OCR/photo scan may not work.';
+      });
     }
 
+    // ---- Model loading ----
+    async function loadRecognitionModels() {
+      const loadingElem = document.getElementById('models-loading');
+      loadingElem.textContent = 'Loading recognition models... (this may take a few seconds)';
+      // Tesseract worker
+      tesseractWorker = Tesseract.createWorker({
+        logger: m => {
+          // Tesseract.js sends progress updates here
+          // We'll not spam the UI, but log to console
+          if (m && m.status) {
+            //console.debug('tesseract', m);
+          }
+        }
+      });
+      await tesseractWorker.load();
+      await tesseractWorker.loadLanguage('eng');
+      await tesseractWorker.initialize('eng');
+      // optional: set parameters for better OCR in recipes
+      try {
+        await tesseractWorker.setParameters({
+          tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,%:()/- ',
+          preserve_interword_spaces: '1'
+        });
+      } catch (e) { /* ignore if not available */ }
+
+      // coco-ssd model (object detection)
+      // Note: coco-ssd uses TensorFlow.js backend and will download a model
+      cocoModel = await cocoSsd.load();
+      modelsLoaded = true;
+      loadingElem.textContent = '';
+      console.info('Models loaded: Tesseract worker and coco-ssd ready.');
+    }
+
+    // ---- Event listeners and UI wiring ----
     function setupEventListeners() {
       document.getElementById('add-recipe-btn').addEventListener('click', openAddModal);
       document.getElementById('close-modal').addEventListener('click', closeModal);
@@ -646,8 +704,11 @@
       const recipePhotoPreview = document.getElementById('recipe-photo-preview');
       const scanPhotoBtn = document.getElementById('scan-photo-btn');
       const scanPhotoProgress = document.getElementById('scan-photo-progress');
+      const scanPhotoDetections = document.getElementById('scan-photo-detections');
 
       recipePhotoInput.addEventListener('change', (e) => {
+        scanPhotoDetections.style.display = 'none';
+        scanPhotoDetections.innerHTML = '';
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
@@ -664,16 +725,25 @@
           alert('Please choose a photo first.');
           return;
         }
+        if (!modelsLoaded) {
+          alert('Recognition models are still loading. Please wait a moment and try again.');
+          return;
+        }
         scanPhotoBtn.disabled = true;
         scanPhotoProgress.style.display = 'inline';
-        scanPhotoProgress.textContent = 'Starting OCR...';
+        scanPhotoProgress.textContent = 'Starting recognition...';
+        scanPhotoDetections.style.display = 'none';
         try {
-          const text = await recognizeImageFile(file, (p) => {
-            scanPhotoProgress.textContent = `Scanning photo: ${Math.round(p * 100)}%`;
+          const { text, labels } = await recognizeImageFile(file, (p) => {
+            scanPhotoProgress.textContent = p;
           });
           scanPhotoProgress.textContent = 'Parsing text...';
-          const parsed = parseRecognizedText(text);
+          const parsed = parseRecognizedText(text, labels);
           fillFormFromParsed(parsed);
+          // show detected labels
+          const labelHtml = labels.length ? `Detected: ${labels.map(l => `${escapeHtml(l.class)} (${(l.score*100).toFixed(0)}%)`).join(', ')}` : 'No objects confidently detected';
+          scanPhotoDetections.innerText = labelHtml;
+          scanPhotoDetections.style.display = 'block';
           scanPhotoProgress.textContent = 'Done.';
         } catch (err) {
           console.error(err);
@@ -689,6 +759,7 @@
       const recipeVideoInput = document.getElementById('recipe-video');
       const analyzeVideoBtn = document.getElementById('analyze-video-btn');
       const analyzeVideoProgress = document.getElementById('analyze-video-progress');
+      const analyzeVideoDetections = document.getElementById('analyze-video-detections');
 
       analyzeVideoBtn.addEventListener('click', async () => {
         const file = recipeVideoInput.files && recipeVideoInput.files[0];
@@ -696,15 +767,27 @@
           alert('Please choose a video file first.');
           return;
         }
+        if (!modelsLoaded) {
+          alert('Recognition models are still loading. Please wait a moment and try again.');
+          return;
+        }
         analyzeVideoBtn.disabled = true;
         analyzeVideoProgress.style.display = 'inline';
         analyzeVideoProgress.textContent = 'Preparing video...';
+        analyzeVideoDetections.style.display = 'none';
+        analyzeVideoDetections.innerHTML = '';
         try {
-          const aggregatedText = await analyzeVideoForOCR(file, (status) => {
+          const { aggregatedText, aggregatedLabels } = await analyzeVideoForOCR(file, (status) => {
             analyzeVideoProgress.textContent = status;
           });
-          const parsed = parseRecognizedText(aggregatedText);
+          analyzeVideoProgress.textContent = 'Parsing text...';
+          const parsed = parseRecognizedText(aggregatedText, aggregatedLabels);
           fillFormFromParsed(parsed);
+          // show detected labels summary
+          const uniqLabels = aggregateLabelSummary(aggregatedLabels);
+          const summary = uniqLabels.length ? `Detected in video: ${uniqLabels.map(l => `${escapeHtml(l.label)} (${l.count})`).join(', ')}` : 'No objects confidently detected';
+          analyzeVideoDetections.innerText = summary;
+          analyzeVideoDetections.style.display = 'block';
           analyzeVideoProgress.textContent = 'Done.';
         } catch (err) {
           console.error(err);
@@ -732,6 +815,7 @@
 
     }
 
+    // ---- Modal controls ----
     function openAddModal() {
       if (recipes.length >= 999) {
         return;
@@ -742,6 +826,7 @@
       document.getElementById('recipe-photo-preview').style.display = 'none';
       document.getElementById('finished-photo-preview').style.display = 'none';
       document.getElementById('recipe-modal').classList.add('active');
+      document.getElementById('recipe-modal').setAttribute('aria-hidden','false');
     }
 
     function openEditModal(recipe) {
@@ -762,13 +847,16 @@
       }
 
       document.getElementById('recipe-modal').classList.add('active');
+      document.getElementById('recipe-modal').setAttribute('aria-hidden','false');
     }
 
     function closeModal() {
       document.getElementById('recipe-modal').classList.remove('active');
+      document.getElementById('recipe-modal').setAttribute('aria-hidden','true');
       editingRecipeId = null;
     }
 
+    // ---- Form submit, create/update ----
     async function handleSubmit(e) {
       e.preventDefault();
       
@@ -846,6 +934,7 @@
       submitBtn.textContent = 'Save Recipe';
     }
 
+    // ---- Rating update ----
     async function updateRating(recipe, newRating) {
       if (window.dataSdk) {
         const result = await window.dataSdk.update({
@@ -859,16 +948,18 @@
       }
     }
 
-    async function deleteRecipe(recipe) {
-      const deleteBtn = event.target;
-      const originalText = deleteBtn.textContent;
+    // ---- Delete recipe (fix: accept event) ----
+    async function deleteRecipe(recipe, event) {
+      // event comes from click; use it to get button UI
+      const deleteBtn = event?.currentTarget || event?.target;
+      const originalText = deleteBtn ? deleteBtn.textContent : 'Delete';
       
-      if (deleteBtn.textContent === 'Delete') {
+      if (deleteBtn && deleteBtn.textContent === 'Delete') {
         deleteBtn.textContent = 'Confirm?';
         deleteBtn.style.background = '#d32f2f';
         
         setTimeout(() => {
-          if (deleteBtn.textContent === 'Confirm?') {
+          if (deleteBtn && deleteBtn.textContent === 'Confirm?') {
             deleteBtn.textContent = originalText;
             deleteBtn.style.background = '#f44336';
           }
@@ -876,20 +967,26 @@
         return;
       }
       
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Deleting...';
+      if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Deleting...';
+      }
       
       if (window.dataSdk) {
         const result = await window.dataSdk.delete(recipe);
         
         if (!result.isOk) {
           alert('Failed to delete recipe. Please try again.');
-          deleteBtn.disabled = false;
-          deleteBtn.textContent = originalText;
+          if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = originalText;
+            deleteBtn.style.background = '#f44336';
+          }
         }
       }
     }
 
+    // ---- Rendering recipes ----
     function renderRecipes() {
       const grid = document.getElementById('recipe-grid');
       const filteredRecipes = currentFilter === 'all' 
@@ -935,7 +1032,7 @@
       card.style.background = config.surface_color || defaultConfig.surface_color;
       
       // finished photo (if present) displayed above title
-      const finishedHtml = recipe.finishedPhoto ? `<div style="text-align:center; margin-bottom:1rem;"><img src="${recipe.finishedPhoto}" alt="Finished photo" style="max-width:100%; border-radius:8px; object-fit:cover;"/></div>` : '';
+      const finishedHtml = recipe.finishedPhoto ? `<div style="text-align:center; margin-bottom:1rem;"><img src="${recipe.finishedPhoto}" alt="Finished photo" style="max-width:100%; border-radius:8px; object-fit:cover;"></div>` : '';
 
       card.innerHTML = `
         ${finishedHtml}
@@ -976,7 +1073,7 @@
       const editBtn = card.querySelector('.edit-btn');
       if (editBtn) editBtn.addEventListener('click', () => openEditModal(recipe));
       const deleteBtn = card.querySelector('.delete-btn');
-      if (deleteBtn) deleteBtn.addEventListener('click', () => deleteRecipe(recipe));
+      if (deleteBtn) deleteBtn.addEventListener('click', (e) => deleteRecipe(recipe, e));
     }
 
     function updateLimitWarning() {
@@ -988,8 +1085,7 @@
       }
     }
 
-    // Utilities
-
+    // ---- Utilities ----
     function fileToDataURL(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -999,171 +1095,84 @@
       });
     }
 
-    // Tesseract wrapper for a File object
-    async function recognizeImageFile(file, onProgress) {
-      // convert file to blob URL or dataURL
-      const dataUrl = await fileToDataURL(file);
-      // Tesseract expects a URL or image element
-      return new Promise((resolve, reject) => {
-        Tesseract.recognize(dataUrl, 'eng', {
-          logger: (m) => {
-            if (onProgress && m && m.progress) onProgress(m.progress);
-          }
-        }).then(({ data: { text } }) => resolve(text))
-          .catch(reject);
-      });
-    }
-
-    // Parse OCR text into name, ingredients, instructions heuristically
-    function parseRecognizedText(text) {
-      // Normalize whitespace and split to lines
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      let name = '';
-      let ingredients = '';
-      let instructions = '';
-
-      if (lines.length === 0) return { name, ingredients, instructions, raw: text };
-
-      // Heuristic: first line likely the name
-      name = lines[0];
-
-      // Look for sections by keyword
-      const joined = lines.join('\n').toLowerCase();
-      const ingredientsIndex = lines.findIndex(l => /ingredient[s]?\b/i.test(l));
-      const instructionsIndex = lines.findIndex(l => /instruction[s]?\b|method\b|directions\b/i.test(l));
-
-      if (ingredientsIndex >= 0 && instructionsIndex >= 0) {
-        ingredients = lines.slice(ingredientsIndex + 1, instructionsIndex).join('\n');
-        instructions = lines.slice(instructionsIndex + 1).join('\n');
-      } else if (ingredientsIndex >= 0) {
-        ingredients = lines.slice(ingredientsIndex + 1).join('\n');
-        instructions = lines.slice(ingredientsIndex + 1 + Math.max(5, Math.floor(lines.length/3))).join('\n');
-      } else if (instructionsIndex >= 0) {
-        ingredients = lines.slice(1, instructionsIndex).join('\n');
-        instructions = lines.slice(instructionsIndex + 1).join('\n');
-      } else {
-        // fallback: try to detect bullets/numbered steps
-        const stepStart = lines.findIndex(l => /^\d+[\).]/.test(l));
-        if (stepStart >= 0) {
-          ingredients = lines.slice(1, stepStart).join('\n');
-          instructions = lines.slice(stepStart).join('\n');
-        } else {
-          // naive split: first third ingredients, remainder instructions
-          const splitPoint = Math.max(1, Math.floor(lines.length/3));
-          ingredients = lines.slice(1, splitPoint + 1).join('\n');
-          instructions = lines.slice(splitPoint + 1).join('\n');
-        }
-      }
-
-      // Cleanup: if ingredients/instructions are empty, attempt to pick lines that look like ingredient lists
-      if (!ingredients.trim()) {
-        const ingLines = lines.filter(l => /cup|tbsp|tsp|g\b|grams|oz|ounce|fl oz|ml|pinch|kg|tablespoon|teaspoon/i.test(l));
-        if (ingLines.length) ingredients = ingLines.join('\n');
-      }
-
-      // return parsed
-      return { name: name || '', ingredients: ingredients || '', instructions: instructions || '', raw: text };
-    }
-
-    function fillFormFromParsed(parsed) {
-      if (parsed.name) document.getElementById('recipe-name').value = parsed.name;
-      if (parsed.ingredients) document.getElementById('recipe-ingredients').value = parsed.ingredients;
-      if (parsed.instructions) document.getElementById('recipe-instructions').value = parsed.instructions;
-    }
-
-    // Analyze video by sampling N frames evenly across duration, OCR'ing each
-    async function analyzeVideoForOCR(file, setStatus) {
-      // Limit to small number of frames to avoid blocking
-      const MAX_FRAMES = 3;
-      const url = URL.createObjectURL(file);
-      const video = document.getElementById('hidden-video');
-      const canvas = document.getElementById('video-canvas');
-      const ctx = canvas.getContext('2d');
-
-      return new Promise((resolve, reject) => {
-        video.src = url;
-        video.preload = 'metadata';
-        video.muted = true;
-
-        const cleanUp = () => {
-          try { URL.revokeObjectURL(url); } catch {}
-          video.pause();
-          video.removeAttribute('src');
-        };
-
-        video.onloadedmetadata = async () => {
-          const duration = video.duration || 0;
-          if (!duration || !isFinite(duration)) {
-            cleanUp();
-            return reject(new Error('Unable to read video duration'));
-          }
-
-          const sampleTimes = [];
-          for (let i = 1; i <= Math.min(MAX_FRAMES, Math.ceil(duration)); i++) {
-            sampleTimes.push((i / (Math.min(MAX_FRAMES, Math.ceil(duration)) + 1)) * duration);
-          }
-
-          let aggregatedText = '';
-          for (let i = 0; i < sampleTimes.length; i++) {
-            const t = sampleTimes[i];
-            setStatus && setStatus(`Seeking to ${Math.round(t)}s (${i+1}/${sampleTimes.length})`);
-            await seekVideo(video, t);
-            // set canvas size from current frame
-            canvas.width = Math.min(video.videoWidth, 1280);
-            canvas.height = Math.min(video.videoHeight, 720);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            // convert to blob for Tesseract
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-            setStatus && setStatus(`OCR frame ${i+1}/${sampleTimes.length}...`);
-            try {
-              const text = await recognizeImageFile(blob, (p) => {
-                // optional per-frame progress
-              });
-              aggregatedText += '\n' + text;
-            } catch (err) {
-              console.warn('Frame OCR failed', err);
-            }
-          }
-          cleanUp();
-          resolve(aggregatedText);
-        };
-
-        video.onerror = (e) => {
-          cleanUp();
-          reject(new Error('Video load error'));
-        };
-      });
-    }
-
-    function seekVideo(videoEl, time) {
-      return new Promise((resolve, reject) => {
-        const onSeeked = () => {
-          videoEl.removeEventListener('seeked', onSeeked);
-          resolve();
-        };
-        videoEl.addEventListener('seeked', onSeeked);
-        videoEl.currentTime = Math.min(videoEl.duration - 0.1, Math.max(0, time));
-        // fallback timeout
-        setTimeout(() => {
-          videoEl.removeEventListener('seeked', onSeeked);
-          resolve();
-        }, 3000);
-      });
-    }
-
-    // Escape HTML for safe insertion
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
         .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/\n/g, '<br/>');
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     }
 
-    initializeApp();
-  </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99a7600e54cb36e7',t:'MTc2MjQ2MTMwNC4wMD[...]
-</html>
+    // ---- Image preprocessing (resize/compress) ----
+    function loadImageToCanvas(fileOrDataUrl, maxWidth = 1200) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas);
+        };
+        img.onerror = reject;
+        if (typeof fileOrDataUrl === 'string') {
+          img.src = fileOrDataUrl;
+        } else {
+          // file
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            img.src = ev.target.result;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(fileOrDataUrl);
+        }
+      });
+    }
+
+    // ---- Recognize single image: object detection + OCR ----
+    async function recognizeImageFile(file, onProgressText = () => {}) {
+      // returns { text: '...', labels: [{class, score}] }
+      onProgressText('Preparing image...');
+      const canvas = await loadImageToCanvas(file, 1200);
+      onProgressText('Detecting objects...');
+      let labels = [];
+      try {
+        if (cocoModel) {
+          labels = await cocoModel.detect(canvas);
+        }
+      } catch (err) {
+        console.warn('Object detection failed:', err);
+      }
+
+      onProgressText('Running OCR...');
+      let ocrResultText = '';
+      if (tesseractWorker) {
+        // run OCR on the canvas image
+        const dataUrl = canvas.toDataURL('image/png');
+        const { data: { text } } = await tesseractWorker.recognize(dataUrl);
+        ocrResultText = text || '';
+      } else {
+        ocrResultText = '';
+      }
+      return { text: ocrResultText, labels };
+    }
+
+    // ---- Simple image hash (average hash) for deduplication ----
+    function averageHash(canvas, size = 8) {
+      // create small grayscale version and compute bitstring
+      const tmp = document.createElement('canvas');
+      tmp.width = size; tmp.height = size;
+      const ctx = tmp.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, size, size);
+      const imgData = ctx.getImageData(0,0,size,size).data;
+      let sum = 0;
+      const vals = [];
+      for (let i=0;i<imgData.length;i+=4) {
+        const r = imgData[i], g = imgData[i+1], b*`
+
