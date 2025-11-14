@@ -1,506 +1,1178 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>My Recipe Collection</title>
-
-  <!-- Tailwind (utility classes only; safe on GitHub Pages) -->
-  <script src="https://cdn.tailwindcss.com" defer></script>
-
-  <!-- Tesseract.js for client-side OCR (optional) -->
-  <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
-
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Manager</title>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
   <style>
-    :root{
-      --bg1:#ffecd2; --bg2:#fcb69f; --text:#5d4037; --primary:#ff6f61; --secondary:#4caf50;
-      --surface:#ffffff; --chip:#ffe0b2; --chipText:#e65100;
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Georgia', serif;
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      min-height: 100%;
+      height: 100%;
     }
-    html,body{height:100%}
-    *{box-sizing:border-box}
-    body{
-      margin:0; font-family: Georgia, serif; color:var(--text);
-      background:linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 100%);
-      min-height:100%;
+    
+    html {
+      height: 100%;
     }
-    .container{max-width:1200px;margin:0 auto;padding:2rem}
-    .header{text-align:center;margin-bottom:2rem}
-    .header h1{font-size:2.5rem;margin:0 0 .5rem;text-shadow:2px 2px 4px rgba(0,0,0,.1)}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border:none;border-radius:999px;
-         padding:.75rem 1.25rem;font-weight:700;cursor:pointer;transition:.2s}
-    .btn-primary{background:var(--primary);color:#fff}
-    .btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
-    .btn-secondary{background:var(--secondary);color:#fff}
-    .btn-secondary:hover{filter:brightness(.95)}
-    .btn-ghost{background:#fff;border:2px solid var(--text);color:var(--text);border-radius:20px;padding:.5rem 1rem}
-    .btn-ghost.active,.btn-ghost:hover{background:var(--text);color:#fff}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem}
-    .card{background:var(--surface);border-radius:16px;padding:1.25rem;box-shadow:0 4px 8px rgba(0,0,0,.1)}
-    .chip{background:var(--chip);color:var(--chipText);padding:.25rem .6rem;border-radius:14px;font-weight:700;font-size:.8rem}
-    .rating{display:flex;gap:.25rem;margin:.5rem 0 1rem}
-    .star{font-size:1.4rem;cursor:pointer;transition:transform .15s}
-    .star:hover{transform:scale(1.2)}
-    .star.filled{color:#ffd700}.star.empty{color:#ddd}
-    .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:2rem;z-index:50}
-    .modal.active{display:flex}
-    .modal-content{background:#fff;border-radius:16px;padding:1.5rem;max-width:900px;width:100%;max-height:90%;overflow:auto}
-    .form{display:grid;gap:1rem}
-    .form label{font-weight:700;margin-bottom:.35rem;display:block}
-    .input,.select,.textarea{width:100%;padding:.75rem;border:2px solid #ddd;border-radius:8px;font:inherit}
-    .textarea{min-height:110px;resize:vertical}
-    .limit{background:#fff3cd;border:2px solid #ffc107;color:#7a5d00;padding:1rem;border-radius:10px;text-align:center;font-weight:700;margin:1rem 0}
-    .thumb{max-width:150px;max-height:100px;border-radius:8px;display:block;margin-top:.5rem;object-fit:cover}
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .header h1 {
+      color: #5d4037;
+      font-size: 2.5rem;
+      margin: 0 0 0.5rem 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .header p {
+      color: #6d4c41;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .add-btn {
+      background: #ff6f61;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 25px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .add-btn:hover {
+      background: #ff5a4d;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+    }
+    
+    .filter-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    
+    .filter-btn {
+      background: white;
+      color: #5d4037;
+      border: 2px solid #5d4037;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .filter-btn:hover {
+      background: #5d4037;
+      color: white;
+    }
+    
+    .filter-btn.active {
+      background: #5d4037;
+      color: white;
+    }
+    
+    .recipe-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .recipe-card {
+      background: white;
+      border-radius: 15px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .recipe-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+    }
+    
+    .recipe-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+    
+    .recipe-title {
+      font-size: 1.3rem;
+      color: #5d4037;
+      margin: 0;
+      font-weight: bold;
+    }
+    
+    .recipe-category {
+      background: #ffe0b2;
+      color: #e65100;
+      padding: 0.25rem 0.75rem;
+      border-radius: 15px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .rating {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+    }
+    
+    .star {
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    
+    .star:hover {
+      transform: scale(1.2);
+    }
+    
+    .star.filled {
+      color: #ffd700;
+    }
+    
+    .star.empty {
+      color: #ddd;
+    }
+    
+    .recipe-section {
+      margin-bottom: 1rem;
+    }
+    
+    .recipe-section h3 {
+      color: #5d4037;
+      font-size: 1rem;
+      margin: 0 0 0.5rem 0;
+    }
+    
+    .recipe-section p {
+      color: #6d4c41;
+      font-size: 0.9rem;
+      margin: 0;
+      line-height: 1.5;
+    }
+    
+    .recipe-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .edit-btn, .delete-btn {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    
+    .edit-btn {
+      background: #4caf50;
+      color: white;
+    }
+    
+    .edit-btn:hover {
+      background: #45a049;
+    }
+    
+    .delete-btn {
+      background: #f44336;
+      color: white;
+    }
+    
+    .delete-btn:hover {
+      background: #da190b;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 2rem;
+    }
+    
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-content {
+      background: white;
+      border-radius: 15px;
+      padding: 2rem;
+      max-width: 800px;
+      width: 100%;
+      max-height: 90%;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h2 {
+      color: #5d4037;
+      margin: 0;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #5d4037;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+      display: block;
+      color: #5d4037;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: 'Georgia', serif;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #ff6f61;
+    }
+    
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .submit-btn, .cancel-btn {
+      flex: 1;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    
+    .submit-btn {
+      background: #ff6f61;
+      color: white;
+    }
+    
+    .submit-btn:hover {
+      background: #ff5a4d;
+    }
+    
+    .submit-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .cancel-btn {
+      background: #ddd;
+      color: #5d4037;
+    }
+    
+    .cancel-btn:hover {
+      background: #ccc;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #6d4c41;
+    }
+    
+    .empty-state h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .empty-state p {
+      font-size: 1.1rem;
+    }
+    
+    .limit-warning {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      color: #856404;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .preview-thumb {
+      max-width: 150px;
+      max-height: 100px;
+      border-radius: 8px;
+      display: block;
+      margin-top: 0.5rem;
+      object-fit: cover;
+    }
+
+    .small-btn {
+      padding: 0.5rem 0.75rem;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-radius: 6px;
+      border: none;
+      background: #1976d2;
+      color: white;
+    }
+
+    .small-btn[disabled] {
+      background: #888;
+      cursor: not-allowed;
+    }
+
+    .progress {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #5d4037;
+    }
+
+    .detected-list {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+    }
+
   </style>
-</head>
-<body>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+
+  <!-- TensorFlow.js and coco-ssd for object detection (on-device) -->
+  <script src="https://unpkg.com/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://unpkg.com/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
+  <!-- Tesseract.js for client-side OCR (worker) -->
+  <script src="https://unpkg.com/tesseract.js@v2.1.5/dist/tesseract.min.js"></script>
+ </head>
+ <body>
   <div class="container">
-    <div class="header">
-      <h1>My Recipe Collection</h1>
-      <p>Organize and rate your favorite baking recipes</p>
+   <div class="header">
+    <h1 id="app-title">My Recipe Collection</h1>
+    <p>Organize and rate your favorite baking recipes</p>
+   </div>
+   <div id="limit-warning" class="limit-warning" style="display: none;">
+    Maximum limit of 999 recipes reached. Please delete some recipes to add new ones.
+   </div>
+   <div class="controls"><button class="add-btn" id="add-recipe-btn"> <span id="add-button-text">➕ Add New Recipe</span> </button>
+    <div class="filter-group"><button class="filter-btn active" data-category="all">All</button> <button class="filter-btn" data-category="Cakes">🎂 Cakes</button> <button class="filter-btn" data-category="Cookies">🍪 Cookies</button> <button class="filter-btn" data-category="Bread">🍞 Bread</button> <button class="filter-btn" data-category="Pies">🥧 Pies</button></div>
+   </div>
+   <div id="models-loading" style="color:#5d4037; font-size:0.95rem; margin-bottom:1rem;">Loading recognition models...</div>
+   <div id="recipe-grid" class="recipe-grid"></div>
+  </div>
+  <div id="recipe-modal" class="modal" aria-hidden="true">
+   <div class="modal-content">
+    <div class="modal-header">
+     <h2 id="modal-title">Add New Recipe</h2><button class="close-btn" id="close-modal" aria-label="Close">×</button>
     </div>
+    <form id="recipe-form">
+     <div class="form-group"><label for="recipe-name">Recipe Name</label> <input type="text" id="recipe-name" required placeholder="e.g., Chocolate Chip Cookies">
+     </div>
 
-    <div id="limit" class="limit" style="display:none">Maximum limit of 999 recipes reached.</div>
+     <div class="form-group"><label for="recipe-category">Category</label> <select id="recipe-category" required> <option value="">Select a category</option> <option value="Cakes">Cakes</option> <option value="Cookies">Cookies</option> <option value="Bread">Bread</option> <option value="Pies">Pies</option> <option value="Other">Other</option></select>
+     </div>
 
-    <div class="flex flex-wrap items-center gap-3 mb-6">
-      <button id="addBtn" class="btn btn-primary">➕ Add New Recipe</button>
-      <div class="flex flex-wrap gap-2">
-        <button class="btn-ghost active" data-filter="all">All</button>
-        <button class="btn-ghost" data-filter="Cakes">🎂 Cakes</button>
-        <button class="btn-ghost" data-filter="Cookies">🍪 Cookies</button>
-        <button class="btn-ghost" data-filter="Pies">🥧 Pies</button>
-        <button class="btn-ghost" data-filter="Bread">🍞 Bread</button>
-        <button class="btn-ghost" data-filter="Other">Other</button>
-      </div>
-    </div>
+     <div class="form-group"><label for="recipe-ingredients">Ingredients</label> <textarea id="recipe-ingredients" required placeholder="List your ingredients, one per line"></textarea>
+     </div>
 
-    <div id="grid" class="grid"></div>
+     <div class="form-group"><label for="recipe-instructions">Instructions</label> <textarea id="recipe-instructions" required placeholder="Step-by-step instructions"></textarea>
+     </div>
+
+     <!-- NEW: Recipe photo for OCR -->
+     <div class="form-group">
+       <label for="recipe-photo">Upload recipe photo (scan to fill form)</label>
+       <input type="file" id="recipe-photo" accept="image/*">
+       <img id="recipe-photo-preview" class="preview-thumb" style="display:none" alt="Recipe photo preview">
+       <div>
+         <button type="button" id="scan-photo-btn" class="small-btn">Scan Photo</button>
+         <span id="scan-photo-progress" class="progress" style="display:none"></span>
+         <div id="scan-photo-detections" class="detected-list" style="display:none"></div>
+       </div>
+     </div>
+
+     <!-- NEW: Video upload to analyze frames -->
+     <div class="form-group">
+       <label for="recipe-video">Upload video (sample frames to OCR)</label>
+       <input type="file" id="recipe-video" accept="video/*">
+       <div>
+         <button type="button" id="analyze-video-btn" class="small-btn">Analyze Video</button>
+         <span id="analyze-video-progress" class="progress" style="display:none"></span>
+         <div id="analyze-video-detections" class="detected-list" style="display:none"></div>
+       </div>
+     </div>
+
+     <!-- NEW: Finished photo upload -->
+     <div class="form-group">
+       <label for="finished-photo">Upload finished-photo (will be shown above recipe)</label>
+       <input type="file" id="finished-photo" accept="image/*">
+       <img id="finished-photo-preview" class="preview-thumb" style="display:none" alt="Finished photo preview">
+     </div>
+
+     <div class="form-actions"><button type="button" class="cancel-btn" id="cancel-btn">Cancel</button> <button type="submit" class="submit-btn" id="submit-btn">Save Recipe</button>
+     </div>
+    </form>
+   </div>
   </div>
 
-  <!-- Modal -->
-  <div id="modal" class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <div class="flex items-center justify-between mb-4">
-        <h2 id="modalTitle" class="text-2xl m-0">Add New Recipe</h2>
-        <button id="closeModal" class="btn-ghost">✕</button>
-      </div>
-
-      <form id="form" class="form">
-        <div>
-          <label for="name">Recipe Name</label>
-          <input id="name" class="input" type="text" required placeholder="e.g., Chocolate Chip Cookies">
-        </div>
-
-        <div>
-          <label for="cat">Category</label>
-          <select id="cat" class="select" required>
-            <option value="">Select a category</option>
-            <option value="Cakes">Cakes</option>
-            <option value="Cookies">Cookies</option>
-            <option value="Pies">Pies</option>
-            <option value="Bread">Bread</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="ingredients">Ingredients</label>
-          <textarea id="ingredients" class="textarea" required placeholder="One per line"></textarea>
-        </div>
-
-        <div>
-          <label for="instructions">Instructions</label>
-          <textarea id="instructions" class="textarea" required placeholder="Step-by-step"></textarea>
-        </div>
-
-        <!-- OCR from image -->
-        <div>
-          <label for="photo">Upload recipe photo (scan to fill form)</label>
-          <input id="photo" type="file" accept="image/*" class="input">
-          <img id="photoPreview" class="thumb" style="display:none" alt="Recipe photo preview">
-          <div class="mt-2 flex items-center gap-2">
-            <button id="scanBtn" type="button" class="btn btn-secondary">Scan Photo</button>
-            <span id="scanProgress" class="text-sm"></span>
-          </div>
-        </div>
-
-        <!-- OCR from video -->
-        <div>
-          <label for="video">Upload video (sample frames to OCR)</label>
-          <input id="video" type="file" accept="video/*" class="input">
-          <div class="mt-2 flex items-center gap-2">
-            <button id="analyzeBtn" type="button" class="btn btn-secondary">Analyze Video</button>
-            <span id="analyzeProgress" class="text-sm"></span>
-          </div>
-        </div>
-
-        <!-- Finished photo shown on card -->
-        <div>
-          <label for="finished">Upload finished-photo (shown above recipe)</label>
-          <input id="finished" type="file" accept="image/*" class="input">
-          <img id="finishedPreview" class="thumb" style="display:none" alt="Finished photo preview">
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 mt-2">
-          <button id="cancelBtn" type="button" class="btn btn-ghost">Cancel</button>
-          <button id="saveBtn" type="submit" class="btn btn-primary">Save Recipe</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Hidden elements for video OCR -->
-  <video id="hiddenVideo" style="display:none"></video>
-  <canvas id="canvas" style="display:none"></canvas>
+  <!-- Hidden video element used to sample frames -->
+  <video id="hidden-video" style="display:none"></video>
+  <canvas id="video-canvas" style="display:none"></canvas>
 
   <script>
-/* ========= DIAGNOSTICS (at top of script) ========= */
-(function () {
-  // Check localStorage availability
-  let storageOK = true, storageErr = null;
-  try { localStorage.setItem('__test__', '1'); localStorage.removeItem('__test__'); }
-  catch (e) { storageOK = false; storageErr = e; }
-  console.log("[diag] storageOK =", storageOK);
-  if (!storageOK) {
-    alert("Your browser is blocking storage (localStorage). Try a regular window (not private) or allow storage.");
-    console.warn("localStorage blocked:", storageErr);
-  }
-  // Simple hooks used later
-  window.__diag = {
-    beforeSave(formData) { console.log("[diag] beforeSave", formData); },
-    afterSave(recipes) { console.log("[diag] afterSave; recipes length:", recipes.length); },
-    afterRender(visible) { console.log("[diag] afterRender; visible:", visible.length); }
-  };
-})();
-
-/* ========= DATA STORE (localStorage) ========= */
-const STORE_KEY = 'recipes_v1';
-const load = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; } };
-const save = (arr) => localStorage.setItem(STORE_KEY, JSON.stringify(arr));
-
-/* ========= STATE & ELEMENTS ========= */
-let recipes = load();        // array of recipe objects
-let filter = 'all';          // current category filter
-let editingId = null;        // id of recipe being edited
-
-const $ = (sel) => document.querySelector(sel);
-const grid = $('#grid');
-const limit = $('#limit');
-const modal = $('#modal');
-const form = $('#form');
-const modalTitle = $('#modalTitle');
-const nameEl = $('#name');
-const catEl = $('#cat');
-const ingEl = $('#ingredients');
-const instEl = $('#instructions');
-const finishedEl = $('#finished');
-const finishedPreview = $('#finishedPreview');
-const photoEl = $('#photo');
-const photoPreview = $('#photoPreview');
-const scanBtn = $('#scanBtn');
-const scanProgress = $('#scanProgress');
-const videoEl = $('#video');
-const analyzeBtn = $('#analyzeBtn');
-const analyzeProgress = $('#analyzeProgress');
-
-/* ========= EVENT WIRING ========= */
-$('#addBtn').addEventListener('click', () => openAdd());
-$('#closeModal').addEventListener('click', closeModal);
-$('#cancelBtn').addEventListener('click', closeModal);
-document.querySelectorAll('[data-filter]').forEach(b => {
-  b.addEventListener('click', (e) => {
-    document.querySelectorAll('[data-filter]').forEach(x => x.classList.remove('active'));
-    e.currentTarget.classList.add('active');
-    filter = e.currentTarget.getAttribute('data-filter');
-    render();
-  });
-});
-
-photoEl.addEventListener('change', () => previewImage(photoEl, photoPreview));
-finishedEl.addEventListener('change', () => previewImage(finishedEl, finishedPreview));
-
-scanBtn.addEventListener('click', async () => {
-  const f = photoEl.files && photoEl.files[0];
-  if (!f) return alert('Choose a recipe photo first.');
-  scanProgress.textContent = 'Scanning...';
-  try {
-    const text = await ocrFile(f, p => { scanProgress.textContent = `Scanning ${Math.round(p*100)}%`; });
-    const parsed = parseText(text);
-    if (parsed.name) nameEl.value = parsed.name;
-    if (parsed.ingredients) ingEl.value = parsed.ingredients;
-    if (parsed.instructions) instEl.value = parsed.instructions;
-    scanProgress.textContent = 'Done.';
-  } catch (e) {
-    console.error(e);
-    scanProgress.textContent = 'Failed to scan.';
-    alert('OCR failed. Try a clearer photo.');
-  } finally {
-    setTimeout(() => scanProgress.textContent = '', 1200);
-  }
-});
-
-analyzeBtn.addEventListener('click', async () => {
-  const f = videoEl.files && videoEl.files[0];
-  if (!f) return alert('Choose a video first.');
-  try {
-    analyzeProgress.textContent = 'Preparing video...';
-    const text = await ocrVideo(f, (s) => analyzeProgress.textContent = s);
-    const parsed = parseText(text);
-    if (parsed.name) nameEl.value = parsed.name;
-    if (parsed.ingredients) ingEl.value = parsed.ingredients;
-    if (parsed.instructions) instEl.value = parsed.instructions;
-    analyzeProgress.textContent = 'Done.';
-  } catch (e) {
-    console.error(e);
-    analyzeProgress.textContent = 'Failed to analyze.';
-  } finally {
-    setTimeout(() => analyzeProgress.textContent = '', 1200);
-  }
-});
-
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  $('#saveBtn').disabled = true;
-  $('#saveBtn').textContent = 'Saving...';
-
-  const rec = {
-    name: nameEl.value.trim(),
-    category: catEl.value,
-    ingredients: ingEl.value.trim(),
-    instructions: instEl.value.trim(),
-    rating: 0,
-    createdAt: new Date().toISOString(),
-  };
-  window.__diag && window.__diag.beforeSave(rec);
-
-  // read images to data URLs so they persist
-  if (finishedEl.files && finishedEl.files[0]) {
-    rec.finishedPhoto = await fileToDataURL(finishedEl.files[0]).catch(()=>null);
-  }
-  if (photoEl.files && photoEl.files[0]) {
-    rec.sourcePhoto = await fileToDataURL(photoEl.files[0]).catch(()=>null);
-  }
-
-  if (editingId) {
-    const i = recipes.findIndex(r => r.__id === editingId);
-    if (i >= 0) recipes[i] = { ...recipes[i], ...rec };
-    editingId = null;
-  } else {
-    if (recipes.length >= 999) {
-      alert('Maximum 999 recipes reached.');
-      $('#saveBtn').disabled = false; $('#saveBtn').textContent = 'Save Recipe'; return;
-    }
-    rec.__id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
-    recipes.push(rec);
-  }
-  save(recipes);
-  window.__diag && window.__diag.afterSave(recipes);
-
-  closeModal();
-  render();
-
-  $('#saveBtn').disabled = false;
-  $('#saveBtn').textContent = 'Save Recipe';
-});
-
-/* ========= UI FUNCTIONS ========= */
-function openAdd(){
-  editingId = null;
-  modalTitle.textContent = 'Add New Recipe';
-  form.reset();
-  photoPreview.style.display = 'none';
-  finishedPreview.style.display = 'none';
-  modal.classList.add('active');
-}
-function openEdit(recipe){
-  editingId = recipe.__id;
-  modalTitle.textContent = 'Edit Recipe';
-  nameEl.value = recipe.name || '';
-  catEl.value = recipe.category || '';
-  ingEl.value = recipe.ingredients || '';
-  instEl.value = recipe.instructions || '';
-  if (recipe.finishedPhoto){ finishedPreview.src = recipe.finishedPhoto; finishedPreview.style.display='block'; }
-  else finishedPreview.style.display='none';
-  modal.classList.add('active');
-}
-function closeModal(){ modal.classList.remove('active'); }
-
-function render(){
-  limit.style.display = recipes.length >= 999 ? 'block' : 'none';
-
-  const visible = (filter === 'all') ? recipes : recipes.filter(r => r.category === filter);
-  if (!visible.length){
-    grid.innerHTML = `
-      <div class="card text-center">
-        <h2 class="text-xl m-0">No recipes yet!</h2>
-        <p>Click “Add New Recipe” to get started 🍰</p>
-      </div>`;
-    window.__diag && window.__diag.afterRender([]);
-    return;
-  }
-  grid.innerHTML = '';
-  visible.forEach(r => grid.appendChild(recipeCard(r)));
-  window.__diag && window.__diag.afterRender(visible);
-}
-
-function recipeCard(r){
-  const card = document.createElement('div');
-  card.className = 'card';
-
-  const photoTop = r.finishedPhoto
-    ? `<div class="text-center mb-3"><img src="${r.finishedPhoto}" alt="Finished photo" style="max-width:100%;border-radius:10px;object-fit:cover"></div>`
-    : '';
-
-  card.innerHTML = `
-    ${photoTop}
-    <div class="flex items-start justify-between mb-2">
-      <h3 class="m-0 text-lg" style="color:var(--text)">${esc(r.name)}</h3>
-      <span class="chip">${esc(r.category || '')}</span>
-    </div>
-
-    <div class="rating" data-id="${r.__id}">
-      ${[1,2,3,4,5].map(n => `<span class="star ${n<= (r.rating||0) ? 'filled':'empty'}" data-rating="${n}">★</span>`).join('')}
-    </div>
-
-    <div class="mb-2">
-      <h4 class="m-0 text-sm">Ingredients</h4>
-      <p class="m-0 whitespace-pre-line">${esc(r.ingredients || '')}</p>
-    </div>
-    <div>
-      <h4 class="m-0 text-sm">Instructions</h4>
-      <p class="m-0 whitespace-pre-line">${esc(r.instructions || '')}</p>
-    </div>
-
-    <div class="grid grid-cols-2 gap-2 mt-3">
-      <button class="btn btn-secondary edit">Edit</button>
-      <button class="btn btn-primary delete" style="background:#f44336">Delete</button>
-    </div>
-  `;
-
-  // Rating
-  card.querySelector('.rating').addEventListener('click', (e) => {
-    if (!e.target.classList.contains('star')) return;
-    const rating = parseInt(e.target.getAttribute('data-rating'), 10);
-    const i = recipes.findIndex(x => x.__id === r.__id);
-    if (i >= 0){ recipes[i].rating = rating; save(recipes); render(); }
-  });
-
-  // Edit / Delete
-  card.querySelector('.edit').addEventListener('click', () => openEdit(r));
-  card.querySelector('.delete').addEventListener('click', () => confirmDelete(r));
-
-  return card;
-}
-
-function confirmDelete(r){
-  if (!confirm(`Delete "${r.name}"?`)) return;
-  recipes = recipes.filter(x => x.__id !== r.__id);
-  save(recipes);
-  render();
-}
-
-/* ========= OCR HELPERS ========= */
-async function fileToDataURL(file){
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = e => res(e.target.result);
-    fr.onerror = rej;
-    fr.readAsDataURL(file);
-  });
-}
-function previewImage(input, imgEl){
-  const f = input.files && input.files[0];
-  if (!f){ imgEl.style.display='none'; return; }
-  const fr = new FileReader();
-  fr.onload = e => { imgEl.src = e.target.result; imgEl.style.display='block'; };
-  fr.readAsDataURL(f);
-}
-async function ocrFile(file, onProgress){
-  const dataUrl = await fileToDataURL(file);
-  return new Promise((resolve, reject) => {
-    Tesseract.recognize(dataUrl, 'eng', { logger: m => { if (onProgress && m.progress) onProgress(m.progress); } })
-      .then(({ data:{ text } }) => resolve(text))
-      .catch(reject);
-  });
-}
-function parseText(text){
-  const lines = (text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  if (!lines.length) return { name:'', ingredients:'', instructions:'' };
-  let name = lines[0];
-  const idxIng = lines.findIndex(l => /ingredient[s]?\b/i.test(l));
-  const idxIns = lines.findIndex(l => /instruction[s]?\b|method\b|directions\b/i.test(l));
-  let ingredients='', instructions='';
-  if (idxIng >= 0 && idxIns >= 0){
-    ingredients = lines.slice(idxIng+1, idxIns).join('\n');
-    instructions = lines.slice(idxIns+1).join('\n');
-  } else if (idxIns >= 0){
-    ingredients = lines.slice(1, idxIns).join('\n');
-    instructions = lines.slice(idxIns+1).join('\n');
-  } else {
-    const stepStart = lines.findIndex(l => /^\d+[\).]/.test(l));
-    if (stepStart >= 0){
-      ingredients = lines.slice(1, stepStart).join('\n');
-      instructions = lines.slice(stepStart).join('\n');
-    } else {
-      const split = Math.max(1, Math.floor(lines.length/3));
-      ingredients = lines.slice(1, split+1).join('\n');
-      instructions = lines.slice(split+1).join('\n');
-    }
-  }
-  if (!ingredients.trim()){
-    const ingLines = lines.filter(l => /cup|tbsp|tsp|g\b|grams|oz|ml|pinch|kg|tablespoon|teaspoon/i.test(l));
-    if (ingLines.length) ingredients = ingLines.join('\n');
-  }
-  return { name, ingredients, instructions };
-}
-async function ocrVideo(file, setStatus){
-  const MAX = 3;
-  const url = URL.createObjectURL(file);
-  const video = document.getElementById('hiddenVideo');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  return new Promise((resolve, reject) => {
-    const cleanup = () => { try{URL.revokeObjectURL(url);}catch{} video.pause(); video.removeAttribute('src'); };
-    video.onloadedmetadata = async () => {
-      const dur = video.duration || 0;
-      if (!dur || !isFinite(dur)){ cleanup(); return reject(new Error('Bad video')); }
-      const frames = Math.min(MAX, Math.ceil(dur));
-      const times = Array.from({length:frames}, (_,i)=> (i+1)/(frames+1)*dur);
-      let text = '';
-      for (let i=0;i<times.length;i++){
-        const t = times[i];
-        setStatus && setStatus(`Frame ${i+1}/${frames}…`);
-        await seek(video, t);
-        canvas.width = Math.min(video.videoWidth, 1280);
-        canvas.height = Math.min(video.videoHeight, 720);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-        try{ const part = await ocrFile(blob); text += '\n' + part; }catch(e){ console.warn('frame OCR failed', e); }
-      }
-      cleanup();
-      resolve(text);
+    // ---- Configuration and global state ----
+    const defaultConfig = {
+      app_title: "My Recipe Collection",
+      add_button_text: "➕ Add New Recipe",
+      background_color: "#ffecd2",
+      surface_color: "#ffffff",
+      text_color: "#5d4037",
+      primary_action_color: "#ff6f61",
+      secondary_action_color: "#4caf50",
+      font_family: "Georgia",
+      font_size: 16
     };
-    video.onerror = () => { cleanup(); reject(new Error('Video load error')); };
-    video.src = url;
-    video.preload = 'metadata';
-    video.muted = true;
-  });
-}
-function seek(video, t){
-  return new Promise((res) => {
-    const onSeeked = () => { video.removeEventListener('seeked', onSeeked); res(); };
-    video.addEventListener('seeked', onSeeked);
-    video.currentTime = Math.min(Math.max(0,t), Math.max(0, (video.duration||0) - .1));
-    setTimeout(() => { video.removeEventListener('seeked', onSeeked); res(); }, 3000); // fallback
-  });
-}
 
-/* ========= UTILS ========= */
-function esc(s){ return String(s||'')
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-  .replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+    let recipes = [];
+    let currentFilter = 'all';
+    let editingRecipeId = null;
 
-/* ========= BOOT ========= */
-render();
-  </script>
-</body>
-</html>
+    // ML models and workers
+    let tesseractWorker = null;
+    let cocoModel = null;
+    let modelsLoaded = false;
+
+    const dataHandler = {
+      onDataChanged(data) {
+        recipes = data;
+        renderRecipes();
+        updateLimitWarning();
+      }
+    };
+
+    // ---- Initialization ----
+    async function initializeApp() {
+      if (window.dataSdk) {
+        const initResult = await window.dataSdk.init(dataHandler);
+        if (!initResult.isOk) {
+          console.error("Failed to initialize data SDK");
+        }
+      }
+
+      if (window.elementSdk) {
+        await window.elementSdk.init({
+          defaultConfig,
+          onConfigChange: async (config) => {
+            const appTitle = document.getElementById('app-title');
+            const addButtonText = document.getElementById('add-button-text');
+            const body = document.body;
+            const recipeCards = document.querySelectorAll('.recipe-card');
+            const addBtn = document.getElementById('add-recipe-btn');
+            const editBtns = document.querySelectorAll('.edit-btn');
+            
+            const customFont = config.font_family || defaultConfig.font_family;
+            const baseFontStack = 'serif';
+            const baseSize = config.font_size || defaultConfig.font_size;
+            
+            body.style.fontFamily = `${customFont}, ${baseFontStack}`;
+            body.style.fontSize = `${baseSize}px`;
+            body.style.background = `linear-gradient(135deg, ${config.background_color || defaultConfig.background_color} 0%, #fcb69f 100%)`;
+            
+            if (appTitle) {
+              appTitle.textContent = config.app_title || defaultConfig.app_title;
+              appTitle.style.color = config.text_color || defaultConfig.text_color;
+              appTitle.style.fontSize = `${baseSize * 2.5}px`;
+            }
+            
+            if (addButtonText) {
+              addButtonText.textContent = config.add_button_text || defaultConfig.add_button_text;
+            }
+            
+            if (addBtn) {
+              addBtn.style.background = config.primary_action_color || defaultConfig.primary_action_color;
+            }
+            
+            recipeCards.forEach(card => {
+              card.style.background = config.surface_color || defaultConfig.surface_color;
+            });
+            
+            editBtns.forEach(btn => {
+              btn.style.background = config.secondary_action_color || defaultConfig.secondary_action_color;
+            });
+            
+            document.querySelectorAll('.recipe-title, .modal-header h2, .form-group label').forEach(el => {
+              el.style.color = config.text_color || defaultConfig.text_color;
+            });
+          },
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () => config.background_color || defaultConfig.background_color,
+                set: (value) => {
+                  config.background_color = value;
+                  window.elementSdk.setConfig({ background_color: value });
+                }
+              },
+              {
+                get: () => config.surface_color || defaultConfig.surface_color,
+                set: (value) => {
+                  config.surface_color = value;
+                  window.elementSdk.setConfig({ surface_color: value });
+                }
+              },
+              {
+                get: () => config.text_color || defaultConfig.text_color,
+                set: (value) => {
+                  config.text_color = value;
+                  window.elementSdk.setConfig({ text_color: value });
+                }
+              },
+              {
+                get: () => config.primary_action_color || defaultConfig.primary_action_color,
+                set: (value) => {
+                  config.primary_action_color = value;
+                  window.elementSdk.setConfig({ primary_action_color: value });
+                }
+              },
+              {
+                get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
+                set: (value) => {
+                  config.secondary_action_color = value;
+                  window.elementSdk.setConfig({ secondary_action_color: value });
+                }
+              }
+            ],
+            borderables: [],
+            fontEditable: {
+              get: () => config.font_family || defaultConfig.font_family,
+              set: (value) => {
+                config.font_family = value;
+                window.elementSdk.setConfig({ font_family: value });
+              }
+            },
+            fontSizeable: {
+              get: () => config.font_size || defaultConfig.font_size,
+              set: (value) => {
+                config.font_size = value;
+                window.elementSdk.setConfig({ font_size: value });
+              }
+            }
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ["app_title", config.app_title || defaultConfig.app_title],
+            ["add_button_text", config.add_button_text || defaultConfig.add_button_text]
+          ])
+        });
+      }
+
+      setupEventListeners();
+      // start loading models (in background)
+      loadRecognitionModels().catch(err => {
+        console.warn('Model load failed:', err);
+        document.getElementById('models-loading').textContent = 'Model loading failed (see console). OCR/photo scan may not work.';
+      });
+    }
+
+    // ---- Model loading ----
+    async function loadRecognitionModels() {
+      const loadingElem = document.getElementById('models-loading');
+      loadingElem.textContent = 'Loading recognition models... (this may take a few seconds)';
+      // Tesseract worker
+      tesseractWorker = Tesseract.createWorker({
+        logger: m => {
+          // Tesseract.js sends progress updates here
+          // We'll not spam the UI, but log to console
+          if (m && m.status) {
+            //console.debug('tesseract', m);
+          }
+        }
+      });
+      await tesseractWorker.load();
+      await tesseractWorker.loadLanguage('eng');
+      await tesseractWorker.initialize('eng');
+      // optional: set parameters for better OCR in recipes
+      try {
+        await tesseractWorker.setParameters({
+          tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,%:()/- ',
+          preserve_interword_spaces: '1'
+        });
+      } catch (e) { /* ignore if not available */ }
+
+      // coco-ssd model (object detection)
+      // Note: coco-ssd uses TensorFlow.js backend and will download a model
+      cocoModel = await cocoSsd.load();
+      modelsLoaded = true;
+      loadingElem.textContent = '';
+      console.info('Models loaded: Tesseract worker and coco-ssd ready.');
+    }
+
+    // ---- Event listeners and UI wiring ----
+    function setupEventListeners() {
+      document.getElementById('add-recipe-btn').addEventListener('click', openAddModal);
+      document.getElementById('close-modal').addEventListener('click', closeModal);
+      document.getElementById('cancel-btn').addEventListener('click', closeModal);
+      document.getElementById('recipe-form').addEventListener('submit', handleSubmit);
+      
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          currentFilter = e.target.dataset.category;
+          renderRecipes();
+        });
+      });
+
+      // image scanning
+      const recipePhotoInput = document.getElementById('recipe-photo');
+      const recipePhotoPreview = document.getElementById('recipe-photo-preview');
+      const scanPhotoBtn = document.getElementById('scan-photo-btn');
+      const scanPhotoProgress = document.getElementById('scan-photo-progress');
+      const scanPhotoDetections = document.getElementById('scan-photo-detections');
+
+      recipePhotoInput.addEventListener('change', (e) => {
+        scanPhotoDetections.style.display = 'none';
+        scanPhotoDetections.innerHTML = '';
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          recipePhotoPreview.src = ev.target.result;
+          recipePhotoPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+
+      scanPhotoBtn.addEventListener('click', async () => {
+        const file = recipePhotoInput.files && recipePhotoInput.files[0];
+        if (!file) {
+          alert('Please choose a photo first.');
+          return;
+        }
+        if (!modelsLoaded) {
+          alert('Recognition models are still loading. Please wait a moment and try again.');
+          return;
+        }
+        scanPhotoBtn.disabled = true;
+        scanPhotoProgress.style.display = 'inline';
+        scanPhotoProgress.textContent = 'Starting recognition...';
+        scanPhotoDetections.style.display = 'none';
+        try {
+          const { text, labels } = await recognizeImageFile(file, (p) => {
+            scanPhotoProgress.textContent = p;
+          });
+          scanPhotoProgress.textContent = 'Parsing text...';
+          const parsed = parseRecognizedText(text, labels);
+          fillFormFromParsed(parsed);
+          // show detected labels
+          const labelHtml = labels.length ? `Detected: ${labels.map(l => `${escapeHtml(l.class)} (${(l.score*100).toFixed(0)}%)`).join(', ')}` : 'No objects confidently detected';
+          scanPhotoDetections.innerText = labelHtml;
+          scanPhotoDetections.style.display = 'block';
+          scanPhotoProgress.textContent = 'Done.';
+        } catch (err) {
+          console.error(err);
+          alert('Failed to scan photo. Try a clearer image or crop it to the recipe text.');
+          scanPhotoProgress.textContent = '';
+        } finally {
+          scanPhotoBtn.disabled = false;
+          setTimeout(() => scanPhotoProgress.style.display = 'none', 1200);
+        }
+      });
+
+      // video analysis
+      const recipeVideoInput = document.getElementById('recipe-video');
+      const analyzeVideoBtn = document.getElementById('analyze-video-btn');
+      const analyzeVideoProgress = document.getElementById('analyze-video-progress');
+      const analyzeVideoDetections = document.getElementById('analyze-video-detections');
+
+      analyzeVideoBtn.addEventListener('click', async () => {
+        const file = recipeVideoInput.files && recipeVideoInput.files[0];
+        if (!file) {
+          alert('Please choose a video file first.');
+          return;
+        }
+        if (!modelsLoaded) {
+          alert('Recognition models are still loading. Please wait a moment and try again.');
+          return;
+        }
+        analyzeVideoBtn.disabled = true;
+        analyzeVideoProgress.style.display = 'inline';
+        analyzeVideoProgress.textContent = 'Preparing video...';
+        analyzeVideoDetections.style.display = 'none';
+        analyzeVideoDetections.innerHTML = '';
+        try {
+          const { aggregatedText, aggregatedLabels } = await analyzeVideoForOCR(file, (status) => {
+            analyzeVideoProgress.textContent = status;
+          });
+          analyzeVideoProgress.textContent = 'Parsing text...';
+          const parsed = parseRecognizedText(aggregatedText, aggregatedLabels);
+          fillFormFromParsed(parsed);
+          // show detected labels summary
+          const uniqLabels = aggregateLabelSummary(aggregatedLabels);
+          const summary = uniqLabels.length ? `Detected in video: ${uniqLabels.map(l => `${escapeHtml(l.label)} (${l.count})`).join(', ')}` : 'No objects confidently detected';
+          analyzeVideoDetections.innerText = summary;
+          analyzeVideoDetections.style.display = 'block';
+          analyzeVideoProgress.textContent = 'Done.';
+        } catch (err) {
+          console.error(err);
+          alert('Failed to analyze video. Try a short clip or a video with clear frames.');
+          analyzeVideoProgress.textContent = '';
+        } finally {
+          analyzeVideoBtn.disabled = false;
+          setTimeout(() => analyzeVideoProgress.style.display = 'none', 1200);
+        }
+      });
+
+      // finished photo preview
+      const finishedPhotoInput = document.getElementById('finished-photo');
+      const finishedPhotoPreview = document.getElementById('finished-photo-preview');
+      finishedPhotoInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          finishedPhotoPreview.src = ev.target.result;
+          finishedPhotoPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      });
+
+    }
+
+    // ---- Modal controls ----
+    function openAddModal() {
+      if (recipes.length >= 999) {
+        return;
+      }
+      editingRecipeId = null;
+      document.getElementById('modal-title').textContent = 'Add New Recipe';
+      document.getElementById('recipe-form').reset();
+      document.getElementById('recipe-photo-preview').style.display = 'none';
+      document.getElementById('finished-photo-preview').style.display = 'none';
+      document.getElementById('recipe-modal').classList.add('active');
+      document.getElementById('recipe-modal').setAttribute('aria-hidden','false');
+    }
+
+    function openEditModal(recipe) {
+      editingRecipeId = recipe.__backendId;
+      document.getElementById('modal-title').textContent = 'Edit Recipe';
+      document.getElementById('recipe-name').value = recipe.name;
+      document.getElementById('recipe-category').value = recipe.category;
+      document.getElementById('recipe-ingredients').value = recipe.ingredients;
+      document.getElementById('recipe-instructions').value = recipe.instructions;
+
+      // show finished photo preview if present
+      if (recipe.finishedPhoto) {
+        const fp = document.getElementById('finished-photo-preview');
+        fp.src = recipe.finishedPhoto;
+        fp.style.display = 'block';
+      } else {
+        document.getElementById('finished-photo-preview').style.display = 'none';
+      }
+
+      document.getElementById('recipe-modal').classList.add('active');
+      document.getElementById('recipe-modal').setAttribute('aria-hidden','false');
+    }
+
+    function closeModal() {
+      document.getElementById('recipe-modal').classList.remove('active');
+      document.getElementById('recipe-modal').setAttribute('aria-hidden','true');
+      editingRecipeId = null;
+    }
+
+    // ---- Form submit, create/update ----
+    async function handleSubmit(e) {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+      
+      const formData = {
+        name: document.getElementById('recipe-name').value,
+        category: document.getElementById('recipe-category').value,
+        ingredients: document.getElementById('recipe-ingredients').value,
+        instructions: document.getElementById('recipe-instructions').value
+      };
+
+      // read finished photo into dataURL (if chosen)
+      const finishedInput = document.getElementById('finished-photo');
+      if (finishedInput.files && finishedInput.files[0]) {
+        try {
+          formData.finishedPhoto = await fileToDataURL(finishedInput.files[0]);
+        } catch (err) {
+          console.warn('Failed to read finished photo', err);
+        }
+      }
+
+      // also save the OCR source photo (optional)
+      const recipePhotoInput = document.getElementById('recipe-photo');
+      if (recipePhotoInput.files && recipePhotoInput.files[0]) {
+        try {
+          formData.sourcePhoto = await fileToDataURL(recipePhotoInput.files[0]);
+        } catch (err) {
+          console.warn('Failed to read source photo', err);
+        }
+      }
+
+      
+      if (editingRecipeId) {
+        const recipe = recipes.find(r => r.__backendId === editingRecipeId);
+        if (recipe && window.dataSdk) {
+          const result = await window.dataSdk.update({
+            ...recipe,
+            ...formData
+          });
+          
+          if (result.isOk) {
+            closeModal();
+          } else {
+            alert('Failed to update recipe. Please try again.');
+          }
+        }
+      } else {
+        if (recipes.length >= 999) {
+          alert('Maximum limit of 999 recipes reached. Please delete some recipes first.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Recipe';
+          return;
+        }
+        
+        if (window.dataSdk) {
+          const result = await window.dataSdk.create({
+            id: Date.now().toString(),
+            ...formData,
+            rating: 0,
+            createdAt: new Date().toISOString()
+          });
+          
+          if (result.isOk) {
+            closeModal();
+          } else {
+            alert('Failed to create recipe. Please try again.');
+          }
+        }
+      }
+      
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Recipe';
+    }
+
+    // ---- Rating update ----
+    async function updateRating(recipe, newRating) {
+      if (window.dataSdk) {
+        const result = await window.dataSdk.update({
+          ...recipe,
+          rating: newRating
+        });
+        
+        if (!result.isOk) {
+          alert('Failed to update rating. Please try again.');
+        }
+      }
+    }
+
+    // ---- Delete recipe (fix: accept event) ----
+    async function deleteRecipe(recipe, event) {
+      // event comes from click; use it to get button UI
+      const deleteBtn = event?.currentTarget || event?.target;
+      const originalText = deleteBtn ? deleteBtn.textContent : 'Delete';
+      
+      if (deleteBtn && deleteBtn.textContent === 'Delete') {
+        deleteBtn.textContent = 'Confirm?';
+        deleteBtn.style.background = '#d32f2f';
+        
+        setTimeout(() => {
+          if (deleteBtn && deleteBtn.textContent === 'Confirm?') {
+            deleteBtn.textContent = originalText;
+            deleteBtn.style.background = '#f44336';
+          }
+        }, 3000);
+        return;
+      }
+      
+      if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Deleting...';
+      }
+      
+      if (window.dataSdk) {
+        const result = await window.dataSdk.delete(recipe);
+        
+        if (!result.isOk) {
+          alert('Failed to delete recipe. Please try again.');
+          if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = originalText;
+            deleteBtn.style.background = '#f44336';
+          }
+        }
+      }
+    }
+
+    // ---- Rendering recipes ----
+    function renderRecipes() {
+      const grid = document.getElementById('recipe-grid');
+      const filteredRecipes = currentFilter === 'all' 
+        ? recipes 
+        : recipes.filter(r => r.category === currentFilter);
+      
+      if (filteredRecipes.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state">
+            <h2>No recipes yet!</h2>
+            <p>Click "Add New Recipe" to get started 🍰</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const existingCards = new Map(
+        [...grid.children].map(el => [el.dataset.recipeId, el])
+      );
+      
+      filteredRecipes.forEach(recipe => {
+        if (existingCards.has(recipe.__backendId)) {
+          updateRecipeCard(existingCards.get(recipe.__backendId), recipe);
+          existingCards.delete(recipe.__backendId);
+        } else {
+          grid.appendChild(createRecipeCard(recipe));
+        }
+      });
+      
+      existingCards.forEach(el => el.remove());
+    }
+
+    function createRecipeCard(recipe) {
+      const card = document.createElement('div');
+      card.className = 'recipe-card';
+      card.dataset.recipeId = recipe.__backendId;
+      updateRecipeCard(card, recipe);
+      return card;
+    }
+
+    function updateRecipeCard(card, recipe) {
+      const config = window.elementSdk?.config || defaultConfig;
+      card.style.background = config.surface_color || defaultConfig.surface_color;
+      
+      // finished photo (if present) displayed above title
+      const finishedHtml = recipe.finishedPhoto ? `<div style="text-align:center; margin-bottom:1rem;"><img src="${recipe.finishedPhoto}" alt="Finished photo" style="max-width:100%; border-radius:8px; object-fit:cover;"></div>` : '';
+
+      card.innerHTML = `
+        ${finishedHtml}
+        <div class="recipe-header">
+          <h2 class="recipe-title" style="color: ${config.text_color || defaultConfig.text_color}">${escapeHtml(recipe.name || '')}</h2>
+          <span class="recipe-category">${escapeHtml(recipe.category || '')}</span>
+        </div>
+        <div class="rating" data-recipe-id="${recipe.__backendId}">
+          ${[1,2,3,4,5].map(star => 
+            `<span class="star ${star <= (recipe.rating||0) ? 'filled' : 'empty'}" data-rating="${star}">★</span>`
+          ).join('')}
+        </div>
+        <div class="recipe-section">
+          <h3>Ingredients</h3>
+          <p>${escapeHtml(recipe.ingredients || '')}</p>
+        </div>
+        <div class="recipe-section">
+          <h3>Instructions</h3>
+          <p>${escapeHtml(recipe.instructions || '')}</p>
+        </div>
+        <div class="recipe-actions">
+          <button class="edit-btn" style="background: ${config.secondary_action_color || defaultConfig.secondary_action_color}">Edit</button>
+          <button class="delete-btn">Delete</button>
+        </div>
+      `;
+      
+      // attach listeners
+      const ratingEl = card.querySelector('.rating');
+      if (ratingEl) {
+        ratingEl.addEventListener('click', (e) => {
+          if (e.target.classList.contains('star')) {
+            const rating = parseInt(e.target.dataset.rating);
+            updateRating(recipe, rating);
+          }
+        });
+      }
+      
+      const editBtn = card.querySelector('.edit-btn');
+      if (editBtn) editBtn.addEventListener('click', () => openEditModal(recipe));
+      const deleteBtn = card.querySelector('.delete-btn');
+      if (deleteBtn) deleteBtn.addEventListener('click', (e) => deleteRecipe(recipe, e));
+    }
+
+    function updateLimitWarning() {
+      const warning = document.getElementById('limit-warning');
+      if (recipes.length >= 999) {
+        warning.style.display = 'block';
+      } else {
+        warning.style.display = 'none';
+      }
+    }
+
+    // ---- Utilities ----
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    // ---- Image preprocessing (resize/compress) ----
+    function loadImageToCanvas(fileOrDataUrl, maxWidth = 1200) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas);
+        };
+        img.onerror = reject;
+        if (typeof fileOrDataUrl === 'string') {
+          img.src = fileOrDataUrl;
+        } else {
+          // file
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            img.src = ev.target.result;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(fileOrDataUrl);
+        }
+      });
+    }
+
+    // ---- Recognize single image: object detection + OCR ----
+    async function recognizeImageFile(file, onProgressText = () => {}) {
+      // returns { text: '...', labels: [{class, score}] }
+      onProgressText('Preparing image...');
+      const canvas = await loadImageToCanvas(file, 1200);
+      onProgressText('Detecting objects...');
+      let labels = [];
+      try {
+        if (cocoModel) {
+          labels = await cocoModel.detect(canvas);
+        }
+      } catch (err) {
+        console.warn('Object detection failed:', err);
+      }
+
+      onProgressText('Running OCR...');
+      let ocrResultText = '';
+      if (tesseractWorker) {
+        // run OCR on the canvas image
+        const dataUrl = canvas.toDataURL('image/png');
+        const { data: { text } } = await tesseractWorker.recognize(dataUrl);
+        ocrResultText = text || '';
+      } else {
+        ocrResultText = '';
+      }
+      return { text: ocrResultText, labels };
+    }
+
+    // ---- Simple image hash (average hash) for deduplication ----
+    function averageHash(canvas, size = 8) {
+      // create small grayscale version and compute bitstring
+      const tmp = document.createElement('canvas');
+      tmp.width = size; tmp.height = size;
+      const ctx = tmp.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, size, size);
+      const imgData = ctx.getImageData(0,0,size,size).data;
+      let sum = 0;
+      const vals = [];
+      for (let i=0;i<imgData.length;i+=4) {
+        const r = imgData[i], g = imgData[i+1], b*`
+
